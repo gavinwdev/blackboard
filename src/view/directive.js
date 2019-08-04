@@ -28,21 +28,21 @@ Directive.prototype.$bind = function (binding) {
     this.$binding = binding;
 };
 
-Directive.prototype.$inserting = function (ele) {
+Directive.prototype.$inserting = function (ele, com) {
     if (utils.isFunction(this.$def.onInserting)) {
-        this.$def.onInserting.call(this, ele);
+        this.$def.onInserting.call(this, ele, this.$binding, com);
     }
 };
 
-Directive.prototype.$inserted = function (ele) {
+Directive.prototype.$inserted = function (ele, com) {
     if (utils.isFunction(this.$def.onInserted)) {
-        this.$def.onInserted.call(this, ele);
+        this.$def.onInserted.call(this, ele, this.$binding, com);
     }
 };
 
-Directive.prototype.$update = function (ele) {
+Directive.prototype.$update = function (ele, com) {
     if (utils.isFunction(this.$def.onUpdate)) {
-        this.$def.onUpdate.call(this, ele);
+        this.$def.onUpdate.call(this, ele, this.$binding, com);
     }
 };
 

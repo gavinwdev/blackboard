@@ -1,0 +1,25 @@
+.flex-column{
+    display: flex;
+    flex-direction: column;
+}
+
+.flex-row{
+    display: flex;
+    flex-direction: row;
+}
+
+.flex-element{
+    flex:1;
+}
+
+.border{
+    border: solid 1px black;
+}
+
+.margin{
+    margin: 4px;
+}
+
+.padding {
+    padding: 4px;
+}

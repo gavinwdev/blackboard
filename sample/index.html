@@ -3,35 +3,23 @@
 
 <head>
     <title>Getting Started</title>
-    <!--<script src="https://unpkg.com/lodash@4.16.6"></script>-->
-    <style type="text/css">
-        .t1
-        {
-            width: 10px;
-        }
-    </style>
+    <link rel="stylesheet" type="text/css" href="./style.css" />
 </head>
 
 <body>
-<script type="text/x-template">
-    <div>
-
-    </div>
-</script>
     <div id="app">
-        <pre>
-        Hello {{ name }} !
-        Hello {{ name }} !
-        Hello {{ name }} !
-        Hello {{ name }} !
-        Hello {{ 3>2 }} !
-        </pre>
-        <div style="width: 10px;height:20px;border:solid 1px {{ color }};" data-show></div>
-        <button @click="sendMessage($event)">detect</button>
-        <say-hello :input="name | filterTest:'name'" *lg-if="shown" @inputChange="onInputChange($event, $args)"></say-hello>
-        <say-hello2 *lg-show="shown" :input="name" style="color: red;"></say-hello2>
+        <div class="flex-row" style="height: 600px;">
+            <div class="flex-element flex-column">
+                    <div class="flex-element border" *b-bind="content" style="flex:2;"></div>
+                    <textarea *b-model="content" style="flex:1;"></textarea>
+            </div>
+            
+            <div class="flex-element padding">
+                <label>Font Size: </label>
+            </div>
+        </div>
     </div>
-    <script src="../lib/axios.js"></script>
+    <script src="./axios.js"></script>
     <script src="../dist/blackboard.js"></script>
     <script src="./index.js"></script>
 </body>
