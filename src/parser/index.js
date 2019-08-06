@@ -44,12 +44,19 @@ function compile(html) {
         astNode.compile();
     });
 
+    astNodes.forEach(function (astNode) {
+        astNode.getDir().forEach(function (directive) {
+            directive.$compile();
+        });
+    });
+
     return function (scope) {
         var fragment = document.createDocumentFragment();
 
         scope.$astNodes = astNodes;
 
         if (!isComponent(scope)) {
+            scope.$directives = [];
             scope.$detect = function () {
                 astNodes.forEach(function (astNode) {
                     astNode.detect();
@@ -59,6 +66,10 @@ function compile(html) {
 
         astNodes.forEach(function (node) {
             fragment.appendChild(node.link(scope));
+        });
+
+        astNodes.forEach(function (item) {
+            item.afterLink();
         });
 
         return fragment;

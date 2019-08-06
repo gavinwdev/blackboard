@@ -42,7 +42,8 @@ var WNodeType = {
     document: 9,
     documentType: 10,
     documentFragment: 11,
-    notation: 12
+    notation: 12,
+    custom: 101
 };
 
 // basic node
@@ -64,10 +65,80 @@ SNode.prototype.hasChildNodes = function () {
     return this.childNodes.length !== 0;
 };
 
+SNode.prototype.createElement = function(name){
+    return new ElementNode(name);
+};
+
+SNode.prototype.createAttr = function (name) {
+    return new AttrNode(name);
+};
+
+SNode.prototype.createCustom = function (name, linker) {
+    return new CustomNode(name, linker);
+};
+
+SNode.prototype.appendChild = function (child) {
+    if (child.parentNode != null) {
+        throw new Error('Append child is not new');
+    }
+
+    this.childNodes.push(child);
+    child.parentNode = this;
+};
+
+SNode.prototype.insertBefore = function (refChild, newChild) {
+    if (newChild.parentNode != null) {
+        throw new Error('Insert child is not new');
+    }
+    var index = this.childNodes.indexOf(refChild);
+    if (index === -1) {
+        throw new Error('Ref node is not a child of specified node');
+    }
+    this.childNodes.splice(index, 0, newChild);
+    refChild.parentNode = null;
+    newChild.parentNode = this;
+};
+
+SNode.prototype.removeChild = function (child) {
+    var index = this.childNodes.indexOf(child);
+    if (index === -1) {
+        throw new Error('Remove node is not a child of specified node');
+    }
+    this.childNodes.splice(index, 1);
+    child.parentNode = null;
+};
+
+SNode.prototype.replaceChild = function (refChild, newChild) {
+    if (newChild.parentNode != null) {
+        throw new Error('Replace child is not new');
+    }
+    var index = this.childNodes.indexOf(refChild);
+    if (index === -1) {
+        throw new Error('Ref node is not a child of specified node');
+    }
+    this.childNodes.splice(index, 1, newChild);
+    refChild.parentNode = null;
+    newChild.parentNode = this;
+};
+
+SNode.prototype.cloneNode = function () {
+
+};
+
 SNode.prototype.compile = function () {
     this.childNodes.forEach(function (child) {
         child.compile();
     });
+};
+
+SNode.prototype.getDir = function () {
+    var result = [];
+    this.childNodes.map(function (child) {
+        return child.getDir();
+    }).forEach(function (item) {
+        result = result.concat(item);
+    });
+    return result;
 };
 
 SNode.prototype.link = function (scope) {
@@ -77,22 +148,60 @@ SNode.prototype.link = function (scope) {
     });
 };
 
+SNode.prototype.afterLink = function () {
+    this.childNodes.forEach(function (child) {
+        child.afterLink();
+    });
+};
+
 SNode.prototype.detect = function () {
-    this.childNodes.forEach(function (child) {
-        child.detect();
-    });
+    if (this.hasChange()) {
+        this.update();
+    }
 };
 
-SNode.prototype.inserting = function () {
-    this.childNodes.forEach(function (child) {
-        child.inserting();
-    });
+SNode.prototype.hasChange = function () {
+    return false;
 };
 
-SNode.prototype.inserted = function () {
-    this.childNodes.forEach(function (child) {
-        child.inserted();
-    });
+SNode.prototype.update = function () {
+
+};
+
+utils.inherit(CustomNode, SNode);
+// custom node
+function CustomNode(name, linker) {
+    CustomNode.super(this, WNodeType.custom, name);
+    this.linker = linker;
+}
+
+CustomNode.prototype.link = function(scope) {
+    this.scope = scope;
+    return this.linker.call(this, scope);
+};
+
+CustomNode.prototype.afterLink = function() {
+    if (utils.isFunction(this.onInsert)) {
+        return this.onInsert.call(this);
+    }
+};
+
+CustomNode.prototype.detect = function() {
+    if (utils.isFunction(this.onDetect)) {
+        return this.onDetect.call(this);
+    }
+};
+
+CustomNode.prototype.hasChange = function() {
+    if (utils.isFunction(this.onHasChange)) {
+        return this.onHasChange.call(this);
+    }
+};
+
+CustomNode.prototype.update = function() {
+    if (utils.isFunction(this.onUpdate)) {
+        return this.onUpdate.call(this);
+    }
 };
 
 utils.inherit(DocumentNode, SNode);
@@ -103,11 +212,21 @@ function DocumentNode() {
 
 utils.inherit(ElementNode, SNode);
 // element node
-function ElementNode() {
-    ElementNode.super(this, WNodeType.element);
+function ElementNode(name) {
+    ElementNode.super(this, WNodeType.element, name);
     this.element = null;
     this.component = null;
+    this.selfClosed = false;
 }
+
+ElementNode.prototype.compile = function () {
+    if (injector.containsComponent(this.nodeName)) {
+        this.component = injector.createComponent(this.nodeName);
+    }
+    this.childNodes.forEach(function (child) {
+        child.compile();
+    });
+};
 
 ElementNode.prototype.link = function (scope) {
     var self = this;
@@ -115,8 +234,7 @@ ElementNode.prototype.link = function (scope) {
     self.scope = scope;
     self.element = document.createElement(self.nodeName);
 
-    if (injector.containsComponent(this.nodeName)) {
-        self.component = injector.createComponent(this.nodeName);
+    if (self.component != null) {
         self.component.$parent = scope;
         if (utils.isArray(scope.$children)) {
             scope.$children.push(self.component);
@@ -134,6 +252,7 @@ ElementNode.prototype.link = function (scope) {
     else {
         self.childNodes.forEach(function (child) {
             switch (child.nodeType) {
+                case WNodeType.custom:
                 case WNodeType.element:
                 case WNodeType.text: {
                     self.element.appendChild(child.link(scope));
@@ -147,8 +266,6 @@ ElementNode.prototype.link = function (scope) {
         });
     }
 
-    self.inserting();
-
     return self.element;
 };
 
@@ -156,6 +273,49 @@ ElementNode.prototype.detect = function () {
     this.childNodes.forEach(function (child) {
         child.detect();
     });
+};
+
+ElementNode.prototype.getOuterTpl = function () {
+    var attrTpl = '', childTpl = '';
+
+    this.childNodes.forEach(function (child) {
+        switch (child.nodeType) {
+            case WNodeType.element:
+            case WNodeType.text: {
+                childTpl += child.getOuterTpl();
+            }
+                break;
+            case WNodeType.attribute: {
+                attrTpl += ' ';
+                attrTpl += child.getOuterTpl();
+            }
+                break;
+        }
+    });
+
+    var tpl = '<' + this.nodeName + attrTpl + '>' + childTpl;
+
+    if(!this.selfClosed){
+        tpl += ('</' + this.nodeName + '>');
+    }
+
+    return tpl;
+};
+
+ElementNode.prototype.getInnerTpl = function () {
+    var childTpl = '';
+
+    this.childNodes.forEach(function (child) {
+        switch (child.nodeType) {
+            case WNodeType.element:
+            case WNodeType.text: {
+                childTpl += child.getOuterTpl();
+            }
+                break;
+        }
+    });
+
+    return childTpl;
 };
 
 utils.inherit(TextNode, SNode);
@@ -175,16 +335,26 @@ TextNode.prototype.link = function (scope) {
     return this.render();
 };
 
-TextNode.prototype.detect = function () {
-    if (this.binding.detect()) {
-        eleUtils.replace(this.element, this.render());
-    }
+TextNode.prototype.hasChange = function () {
+    return this.binding.detect();
+};
+
+TextNode.prototype.update = function () {
+    eleUtils.replace(this.element, this.render());
 };
 
 TextNode.prototype.render = function () {
     var value = this.binding.compute();
     this.element = document.createTextNode(value);
     return this.element;
+};
+
+TextNode.prototype.getOuterTpl = function () {
+    return this.nodeValue;
+};
+
+TextNode.prototype.getInnerTpl = function () {
+    return this.nodeValue;
 };
 
 utils.inherit(CommentNode, SNode);
@@ -217,8 +387,8 @@ function DocumentFragmentNode() {
 
 utils.inherit(AttrNode, SNode);
 // attribute node
-function AttrNode() {
-    AttrNode.super(this, WNodeType.attribute);
+function AttrNode(name) {
+    AttrNode.super(this, WNodeType.attribute, name);
     this.binding = new Binding();
     this.element = null;
     this.component = null;
@@ -249,7 +419,7 @@ AttrNode.prototype.compile = function () {
     if (this.isDirective) {
         if (injector.containsDirective(this.nodeName2)) {
             this.directive = injector.createDirective(this.nodeName2);
-
+            this.directive.$bindNode(this);
         }
         else {
             throw new Error('directive ' + this.nodeName2 + ' is not defined');
@@ -295,7 +465,7 @@ AttrNode.prototype.link = function (scope, element, component) {
     else {
         if (this.directive) {
             scope.$directives.push(this.directive);
-            this.directive.$bind(this.binding);
+            this.directive.$bindValue(this.binding);
         }
         else if (component != null && component.$hasAttr(this.nodeName2)) {
             component.$setAttr(this.nodeName2, this.binding.compute());
@@ -306,34 +476,42 @@ AttrNode.prototype.link = function (scope, element, component) {
     }
 };
 
-AttrNode.prototype.detect = function () {
-    if (this.binding.detect(this.scope)) {
-        if (this.directive) {
-            this.directive.$update(this.element, this.component);
-        }
-        else if (this.component != null && this.component.$hasAttr(this.nodeName2)) {
-            this.component.$setAttr(this.nodeName2, this.binding.compute());
-        }
-        else {
-            var newValue = this.binding.compute();
-            this.element.setAttribute(this.nodeName2, newValue);
-            if (this.element.nodeName === 'INPUT' && this.nodeName2 === 'value') {
-                this.element.value = newValue;
-            }
+AttrNode.prototype.hasChange = function () {
+    return this.binding.detect();
+};
+
+AttrNode.prototype.update = function () {
+    if (this.directive) {
+        this.directive.$update(this.element, this.component);
+    }
+    else if (this.component != null && this.component.$hasAttr(this.nodeName2)) {
+        this.component.$setAttr(this.nodeName2, this.binding.compute());
+    }
+    else {
+        var newValue = this.binding.compute();
+        this.element.setAttribute(this.nodeName2, newValue);
+        if (this.element.nodeName === 'INPUT' && this.nodeName2 === 'value') {
+            this.element.value = newValue;
         }
     }
 };
 
-AttrNode.prototype.inserting = function () {
+AttrNode.prototype.afterLink = function () {
     if (this.directive) {
-        this.directive.$inserting(this.element, this.component);
+        this.directive.$insert(this.element, this.component);
     }
 };
 
-AttrNode.prototype.inserted = function () {
-    if (this.directive) {
-        this.directive.$inserted(this.element, this.component);
-    }
+AttrNode.prototype.getDir = function () {
+    return this.directive == null ? [] : [this.directive];
+};
+
+AttrNode.prototype.getOuterTpl = function () {
+    return this.nodeName + (this.nodeValue == null ? '' : ('=' + this.nodeValue));
+};
+
+AttrNode.prototype.getInnerTpl = function () {
+    return this.nodeName + (this.nodeValue == null ? '' : ('=' + this.nodeValue));
 };
 
 function ExpNode(text) {
@@ -440,7 +618,7 @@ HtmlParser.prototype.parse = function (text) {
     this.text = text;
     this.tokens = this.lexer.lex(text);
 
-    var nodes = [];
+    var root = new ElementNode('tpl');
     var doctype, allowDocType = !!this.options.allowDocType;
     while (this.index < this.tokens.length) {
         var token = this.current();
@@ -449,7 +627,7 @@ HtmlParser.prototype.parse = function (text) {
             if (allowDocType) {
                 if (!doctype) {
                     doctype = this.doctype();
-                    nodes.push(doctype);
+                    root.childNodes.push(doctype);
                 }
                 else {
                     this.throwError("DOCTYPE only allow one", token);
@@ -462,24 +640,26 @@ HtmlParser.prototype.parse = function (text) {
         else if (token.comment) {
             var comment = new CommentNode();
             comment.nodeValue = token.text;
-            nodes.push(comment);
+            comment.parentNode = root;
+            root.childNodes.push(comment);
             this.next();
         }
         else if (token.textTag) {
             var text = new TextNode();
             text.nodeValue = token.text;
-            nodes.push(text);
+            text.parentNode = root;
+            root.childNodes.push(text);
             this.next();
         }
         else if (token.tag && token.begin) {
-            nodes.push(this.element());
+            root.childNodes.push(this.element(root));
         }
         else {
             this.throwError("impossible", token);
         }
     }
 
-    return nodes;
+    return root.childNodes;
 };
 
 HtmlParser.prototype.doctype = function () {

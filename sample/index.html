@@ -16,6 +16,9 @@
             
             <div class="flex-element padding">
                 <label>Font Size: </label>
+                <select>
+                    <option *b-repeat="item in fontSizes" :value="item.value" *b-bind="item.value" *b-attr="item.selected?'selected':''"></option>
+                </select>
             </div>
         </div>
     </div>

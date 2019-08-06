@@ -4,6 +4,7 @@ import {injector} from './injector';
 export default function Directive() {
     this.output = false;
     this.$binding = null;
+    this.$node = null;
 }
 
 Directive.prototype.$onCreating = function () {
@@ -24,19 +25,23 @@ Directive.prototype.$onCreated = function () {
     }
 };
 
-Directive.prototype.$bind = function (binding) {
+Directive.prototype.$bindNode = function (node) {
+    this.$node = node;
+};
+
+Directive.prototype.$bindValue = function (binding) {
     this.$binding = binding;
 };
 
-Directive.prototype.$inserting = function (ele, com) {
-    if (utils.isFunction(this.$def.onInserting)) {
-        this.$def.onInserting.call(this, ele, this.$binding, com);
+Directive.prototype.$compile = function (options) {
+    if (utils.isFunction(this.$def.onCompile)) {
+        this.$def.onCompile.call(this, this.$node, options);
     }
 };
 
-Directive.prototype.$inserted = function (ele, com) {
-    if (utils.isFunction(this.$def.onInserted)) {
-        this.$def.onInserted.call(this, ele, this.$binding, com);
+Directive.prototype.$insert = function (ele, com) {
+    if (utils.isFunction(this.$def.onInsert)) {
+        this.$def.onInsert.call(this, ele, this.$binding, com);
     }
 };
 

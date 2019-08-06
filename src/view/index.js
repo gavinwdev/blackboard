@@ -33,7 +33,7 @@ function component(name, def) {
 function directive(name, def) {
     if (utils.isFunction(def)) {
         def = {
-            onInserted: def,
+            onInsert: def,
             onUpdate: def
         };
     }

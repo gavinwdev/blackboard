@@ -141,9 +141,7 @@ Component.prototype.$onMounting = function () {
 };
 
 Component.prototype.$onMounted = function () {
-    this.$astNodes.forEach(function (item) {
-        item.inserted();
-    });
+
 };
 
 Component.prototype.$onDestroying = function () {
