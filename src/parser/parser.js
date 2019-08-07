@@ -34,7 +34,7 @@ AstNode.prototype.compile = function (scope, options, internals) {
 
 utils.inherit(ProgramNode, AstNode);
 function ProgramNode() {
-    ProgramNode.super(this, AST.Program);
+    ProgramNode.super.call(this, AST.Program);
 }
 
 ProgramNode.prototype.compile = function (scope, options) {
@@ -43,7 +43,7 @@ ProgramNode.prototype.compile = function (scope, options) {
 
 utils.inherit(ExpressionStatementNode, AstNode);
 function ExpressionStatementNode() {
-    ExpressionStatementNode.super(this, AST.ExpressionStatement);
+    ExpressionStatementNode.super.call(this, AST.ExpressionStatement);
 }
 
 ExpressionStatementNode.prototype.compile = function (scope, options, internals) {
@@ -52,7 +52,7 @@ ExpressionStatementNode.prototype.compile = function (scope, options, internals)
 
 utils.inherit(AssignmentExpressionNode, AstNode);
 function AssignmentExpressionNode(left, right, operator) {
-    AssignmentExpressionNode.super(this, AST.AssignmentExpression);
+    AssignmentExpressionNode.super.call(this, AST.AssignmentExpression);
     this.left = left;
     this.right = right;
     this.operator = operator;
@@ -66,7 +66,7 @@ AssignmentExpressionNode.prototype.compile = function (scope, options) {
 
 utils.inherit(ConditionalExpressionNode, AstNode);
 function ConditionalExpressionNode(test, alternate, consequent) {
-    ConditionalExpressionNode.super(this, AST.ConditionalExpression);
+    ConditionalExpressionNode.super.call(this, AST.ConditionalExpression);
     this.test = test;
     this.alternate = alternate;
     this.consequent = consequent;
@@ -81,7 +81,7 @@ ConditionalExpressionNode.prototype.compile = function (scope, options) {
 
 utils.inherit(LogicalExpressionNode, AstNode);
 function LogicalExpressionNode(operator, left, right) {
-    LogicalExpressionNode.super(this, AST.LogicalExpression);
+    LogicalExpressionNode.super.call(this, AST.LogicalExpression);
     this.operator = operator;
     this.left = left;
     this.right = right;
@@ -106,7 +106,7 @@ LogicalExpressionNode.prototype.compile = function (scope, options) {
 
 utils.inherit(BinaryExpressionNode, AstNode);
 function BinaryExpressionNode(operator, left, right) {
-    BinaryExpressionNode.super(this, AST.BinaryExpression);
+    BinaryExpressionNode.super.call(this, AST.BinaryExpression);
     this.operator = operator;
     this.left = left;
     this.right = right;
@@ -165,7 +165,7 @@ BinaryExpressionNode.prototype.compile = function (scope, options) {
 
 utils.inherit(UnaryExpressionNode, AstNode);
 function UnaryExpressionNode(operator, arg) {
-    UnaryExpressionNode.super(this, AST.UnaryExpression);
+    UnaryExpressionNode.super.call(this, AST.UnaryExpression);
     this.prefix = true;
     this.operator = operator;
     this.arg = arg;
@@ -191,7 +191,7 @@ UnaryExpressionNode.prototype.compile = function (scope, options) {
 
 utils.inherit(LiteralNode, AstNode);
 function LiteralNode(value) {
-    LiteralNode.super(this, AST.Literal);
+    LiteralNode.super.call(this, AST.Literal);
     this.value = value;
 }
 
@@ -201,7 +201,7 @@ LiteralNode.prototype.compile = function () {
 
 utils.inherit(CallExpressionNode, AstNode);
 function CallExpressionNode(callee, args) {
-    CallExpressionNode.super(this, AST.CallExpression);
+    CallExpressionNode.super.call(this, AST.CallExpression);
     this.callee = callee;
     this.args = args;
     this.filter = false;
@@ -231,7 +231,7 @@ CallExpressionNode.prototype.compile = function (scope, options) {
 
 utils.inherit(MemberExpressionNode, AstNode);
 function MemberExpressionNode(object, property, computed) {
-    MemberExpressionNode.super(this, AST.MemberExpression);
+    MemberExpressionNode.super.call(this, AST.MemberExpression);
     this.object = object;
     this.property = property;
     this.computed = computed;
@@ -249,7 +249,7 @@ MemberExpressionNode.prototype.compile = function (scope, options, internals) {
 
 utils.inherit(IdentifierNode, AstNode);
 function IdentifierNode(name) {
-    IdentifierNode.super(this, AST.Identifier);
+    IdentifierNode.super.call(this, AST.Identifier);
     this.name = name;
 }
 
@@ -274,12 +274,12 @@ IdentifierNode.prototype.compile = function (scope, options, internals) {
 
 utils.inherit(ArrayExpressionNode, AstNode);
 function ArrayExpressionNode() {
-    ArrayExpressionNode.super(this, AST.ArrayExpression);
+    ArrayExpressionNode.super.call(this, AST.ArrayExpression);
 }
 
 utils.inherit(PropertyNode, AstNode);
 function PropertyNode() {
-    PropertyNode.super(this, AST.Property);
+    PropertyNode.super.call(this, AST.Property);
     this.kind = 'init';
     this.key = null;
     this.value = null;
@@ -295,7 +295,7 @@ PropertyNode.prototype.compile = function (scope, options) {
 
 utils.inherit(ObjectExpressionNode, AstNode);
 function ObjectExpressionNode(properties) {
-    ObjectExpressionNode.super(this, AST.ObjectExpression);
+    ObjectExpressionNode.super.call(this, AST.ObjectExpression);
     this.properties = properties;
 }
 

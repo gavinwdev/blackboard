@@ -1,7 +1,10 @@
 var debugMode = true,
-    isArray = Array.isArray,
     toString = Object.prototype.toString,
     getPrototypeOf = Object.getPrototypeOf;
+
+function isArray(obj) {
+    return obj instanceof Array;
+}
 
 function forEach(obj, action) {
     if (isArray(obj)) {
@@ -124,8 +127,7 @@ function inheritPrototype(subType, superType) {
 function inherit(subType, superType) {
     inheritPrototype(subType, superType);
     subType.super = function () {
-        var self = arguments[0];
-        superType.apply(self, Array.prototype.slice.call(arguments, 1));
+        superType.apply(this, arguments);
     };
 }
 

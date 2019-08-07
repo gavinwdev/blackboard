@@ -8,8 +8,9 @@ import axios from 'axios';
 export default function Component() {
     this.$astNodes = [];
     this.$parent = null;
-    this.$children = [];
+    this.$childComponents = [];
     this.$directives = [];
+    this.$detectTimeout = null;
 }
 
 Component.prototype.$getTemplate = function () {
@@ -67,18 +68,25 @@ Component.prototype.$mount = function (idOrElement) {
 };
 
 Component.prototype.$detect = function () {
-    this.$astNodes.forEach(function (astNode) {
-        astNode.detect();
+    if (this.$detectTimeout) {
+        return;
+    }
+
+    var self = this;
+    self.$detectTimeout = setTimeout(function () {
+        self.$detectTimeout = null;
+        self.$onUpdating();
+        self.$astNodes.forEach(function (astNode) {
+            astNode.detect();
+        });
+        self.$onUpdated();
     });
 };
 
 Component.prototype.$destroy = function () {
     this.$onDestroying();
-    this.$children.forEach(function (child) {
-        child.$destroy();
-    });
-    this.$directives.forEach(function (child) {
-        child.$destroy();
+    this.$astNodes.forEach(function (astNode) {
+        astNode.destroy();
     });
     this.$onDestroyed();
 };
@@ -129,25 +137,44 @@ Component.prototype.$onCreated = function () {
 };
 
 Component.prototype.$onUpdating = function () {
-
+    if (utils.isFunction(this.$def.onUpdating)) {
+        this.$def.onUpdating.call(this);
+    }
 };
 
 Component.prototype.$onUpdated = function () {
-
+    if (utils.isFunction(this.$def.onUpdated)) {
+        this.$def.onUpdated.call(this);
+    }
 };
 
 Component.prototype.$onMounting = function () {
-
+    if (utils.isFunction(this.$def.onMounting)) {
+        this.$def.onMounting.call(this);
+    }
 };
 
 Component.prototype.$onMounted = function () {
-
+    if (utils.isFunction(this.$def.onMounted)) {
+        this.$def.onMounted.call(this);
+    }
 };
 
 Component.prototype.$onDestroying = function () {
-
+    if (utils.isFunction(this.$def.onDestroying)) {
+        this.$def.onDestroying.call(this);
+    }
+    if(this.$detectTimeout){
+        clearTimeout(this.$detectTimeout);
+    }
 };
 
 Component.prototype.$onDestroyed = function () {
-
+    if (utils.isFunction(this.$def.onDestroyed)) {
+        this.$def.onDestroyed.call(this);
+    }
+    this.$astNodes = null;
+    this.$parent = null;
+    this.$childComponents = null;
+    this.$directives = null;
 };

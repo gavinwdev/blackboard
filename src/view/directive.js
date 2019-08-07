@@ -55,4 +55,6 @@ Directive.prototype.$destroy = function () {
     if (utils.isFunction(this.$def.onDestroy)) {
         this.$def.onDestroy.call(this);
     }
+    this.$binding = null;
+    this.$node = null;
 };

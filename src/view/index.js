@@ -15,7 +15,7 @@ function component(name, def) {
             return function constructor() {
                 var self = this;
                 this.$onCreating();
-                constructor.super(this);
+                constructor.super.call(this);
                 // create properties
                 if (utils.isObject(this.$def.props)) {
                     extendAndWatchProps(self, this.$def.props);

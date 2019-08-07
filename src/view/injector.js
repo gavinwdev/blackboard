@@ -115,7 +115,6 @@ Injector.prototype.create = function (contractType, contractName) {
             instance = new constructor(); break;
     }
 
-    instance.$onCreated();
     return instance;
 };
 
@@ -124,6 +123,7 @@ Injector.prototype.createComponent = function (constructor) {
         constructor = this.getComponent(constructor);
     }
     var instance = new constructor();
+    instance.$onCreated();
     return instance;
 };
 
@@ -132,6 +132,7 @@ Injector.prototype.createDirective = function (constructor) {
         constructor = this.getDirective(constructor);
     }
     var instance = new constructor();
+    instance.$onCreated();
     return instance;
 };
 
@@ -140,6 +141,7 @@ Injector.prototype.createFilter = function (constructor) {
         constructor = this.getFilter(constructor);
     }
     var instance = new constructor();
+    instance.$onCreated();
     return instance;
 };
 
@@ -162,6 +164,7 @@ Injector.prototype.createService = function (constructor) {
 
     if (!instance) {
         instance = new constructor();
+        instance.$onCreated();
         services.push(instance);
     }
 
@@ -190,7 +193,7 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
             var self = this;
             this.$onCreating();
             if (utils.isFunction(constructor.super)) {
-                constructor.super(this);
+                constructor.super.call(this);
             }
             if (utils.isObject(this.$def.props)) {
                 utils.extend(this, this.$def.props);

@@ -3,7 +3,7 @@ import { Lexer } from './lexer';
 
 utils.inherit(HtmlLexer, Lexer);
 function HtmlLexer(options) {
-    HtmlLexer.super(this, options);
+    HtmlLexer.super.call(this, options);
 }
 
 HtmlLexer.prototype.isValidIdentifierStart = function (ch) {

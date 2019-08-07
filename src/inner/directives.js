@@ -82,56 +82,108 @@ directive('b-repeat', {
     onCompile: function (node) {
         var arg = node.nodeValue2;
         var eleNode = node.parentNode;
-        eleNode.removeChild(node);
-        var tpl = eleNode.getOuterTpl();
-        var custom = eleNode.createCustom('b-repeat', function () {
-            var fragment = document.createDocumentFragment();
-            this.start = document.createComment('start: b-repeat');
-            this.end = document.createComment('end: b-repeat');
-            fragment.appendChild(this.start);
-            fragment.appendChild(this.end);
-            return fragment;
-        });
-        eleNode.parentNode.replaceChild(eleNode, custom);
-
         var pattern = /^(\w+)\s+in\s+(\w+)$/i;
         var result = pattern.exec(arg);
+
         if (result == null) {
             throw new Error("b-repeat: parameter is not valid");
         }
+
         var itemExp = result[1];
         var itemsExp = result[2];
-        var currentItems;
+
+        eleNode.removeChild(node);
+
+        var currentScope, currentItems, start, end, childScopes = [];
+        var tpl = eleNode.getOuterTpl();
+        var custom = eleNode.createCustom('b-repeat', function (scope) {
+            var fragment = document.createDocumentFragment();
+            currentScope = scope;
+            setCurrentItems(compute(itemsExp, currentScope));
+            start = document.createComment('start: b-repeat');
+            end = document.createComment('end: b-repeat');
+            fragment.appendChild(start);
+            fragment.appendChild(end);
+            return fragment;
+        });
+
+        eleNode.parentNode.replaceChild(eleNode, custom);
 
         custom.onInsert = function () {
-            currentItems = compute(itemsExp, this.scope);
-            build.call(this, currentItems);
+            build(currentItems);
         };
 
         custom.onDetect = function () {
-            var items = compute(itemsExp, this.scope);
-            if (currentItems !== items) {
-                currentItems = items;
-                build.call(this, currentItems);
+            var items = compute(itemsExp, currentScope);
+
+            if (hasChange(currentItems, items)) {
+                setCurrentItems(items);
+                build(currentItems);
+            }
+            else {
+                childScopes.forEach(function (childScope) {
+                    childScope.$detect();
+                });
             }
         };
 
-        function build(items) {
-            var self = this, fragment = document.createDocumentFragment();
+        custom.onDestroy = function () {
+            childScopes.forEach(function (childScope) {
+                childScope.$destroy();
+            });
+            childScopes = null;
+            eleNode = null;
+            currentScope = null;
+            currentItems = null;
+            start = null;
+            end = null;
+            custom = null;
+        };
 
+        function hasChange(newArr, oldArr) {
+            if (newArr !== oldArr) {
+                return true;
+            }
+
+            if (newArr.length !== oldArr.length) {
+                return true;
+            }
+
+            return newArr.some(function (item, index) {
+                item !== oldArr[index];
+            });
+        }
+
+        function setCurrentItems(value) {
+            if (utils.isArray(value)) {
+                currentItems = value.slice(0);
+            }
+            else {
+                currentItems = [];
+            }
+        }
+
+        function build(items) {
+            var fragment = document.createDocumentFragment();
+
+            ChildScope.prototype = currentScope;
             function ChildScope(value) {
                 this[itemExp] = value;
             }
 
-            ChildScope.prototype = self.scope;
-
-            utils.forEach(items, function (key, value) {
-                var childScope = new ChildScope(value);
-                fragment.appendChild(compile(tpl)(childScope));
+            childScopes.forEach(function (childScope) {
+                childScope.$destroy();
+            });
+            childScopes = [];
+            utils.forEach(items, function (key, item) {
+                var childScope = new ChildScope(item);
+                var element = compile(tpl)(childScope);
+                childScopes.push(childScope);
+                fragment.appendChild(element);
             });
 
-            utils.removeBetween(this.start, this.end);
-            this.end.parentNode.insertBefore(fragment, this.end);
+            utils.removeBetween(start, end);
+            end.parentNode.insertBefore(fragment, end);
         }
     }
 });

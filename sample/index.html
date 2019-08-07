@@ -19,6 +19,7 @@
                 <select>
                     <option *b-repeat="item in fontSizes" :value="item.value" *b-bind="item.value" *b-attr="item.selected?'selected':''"></option>
                 </select>
+                <button @click="onClick()">New</button>
             </div>
         </div>
     </div>

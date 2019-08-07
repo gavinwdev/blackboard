@@ -168,10 +168,16 @@ SNode.prototype.update = function () {
 
 };
 
+SNode.prototype.destroy = function () {
+    this.childNodes.map(function (child) {
+        child.destroy();
+    });
+};
+
 utils.inherit(CustomNode, SNode);
 // custom node
 function CustomNode(name, linker) {
-    CustomNode.super(this, WNodeType.custom, name);
+    CustomNode.super.call(this, WNodeType.custom, name);
     this.linker = linker;
 }
 
@@ -204,16 +210,22 @@ CustomNode.prototype.update = function() {
     }
 };
 
+CustomNode.prototype.destroy = function() {
+    if (utils.isFunction(this.onDestroy)) {
+        return this.onDestroy.call(this);
+    }
+};
+
 utils.inherit(DocumentNode, SNode);
 // document node
 function DocumentNode() {
-    DocumentNode.super(this, WNodeType.document);
+    CustomNode.super.call(this, WNodeType.document);
 }
 
 utils.inherit(ElementNode, SNode);
 // element node
 function ElementNode(name) {
-    ElementNode.super(this, WNodeType.element, name);
+    ElementNode.super.call(this, WNodeType.element, name);
     this.element = null;
     this.component = null;
     this.selfClosed = false;
@@ -235,10 +247,8 @@ ElementNode.prototype.link = function (scope) {
     self.element = document.createElement(self.nodeName);
 
     if (self.component != null) {
+        scope.$childComponents.push(self.component);
         self.component.$parent = scope;
-        if (utils.isArray(scope.$children)) {
-            scope.$children.push(self.component);
-        }
         self.childNodes.forEach(function (child) {
             switch (child.nodeType) {
                 case WNodeType.attribute: {
@@ -318,10 +328,22 @@ ElementNode.prototype.getInnerTpl = function () {
     return childTpl;
 };
 
+ElementNode.prototype.destroy = function () {
+    this.childNodes.map(function (child) {
+        child.destroy();
+    });
+    this.childNodes.length = 0;
+    if (this.component != null) {
+        this.component.$destroy();
+        this.component = null;
+    }
+    this.element = null;
+};
+
 utils.inherit(TextNode, SNode);
 // text node
 function TextNode() {
-    TextNode.super(this, WNodeType.text, '#text');
+    TextNode.super.call(this, WNodeType.text, '#text');
     this.binding = new Binding();
     this.element = null;
 }
@@ -357,10 +379,16 @@ TextNode.prototype.getInnerTpl = function () {
     return this.nodeValue;
 };
 
+TextNode.prototype.destroy = function () {
+    this.binding.destroy();
+    this.binding = null;
+    this.element = null;
+};
+
 utils.inherit(CommentNode, SNode);
 // comment node
 function CommentNode() {
-    CommentNode.super(this, WNodeType.comment, '#comment');
+    CommentNode.super.call(this, WNodeType.comment, '#comment');
 }
 
 CommentNode.prototype.link = function () {
@@ -370,25 +398,25 @@ CommentNode.prototype.link = function () {
 utils.inherit(CDataSectionNode, SNode);
 // CDataSection node
 function CDataSectionNode() {
-    CDataSectionNode.super(this, WNodeType.cdataSection);
+    CDataSectionNode.super.call(this, WNodeType.cdataSection);
 }
 
 utils.inherit(DocumentTypeNode, SNode);
 // document type node
 function DocumentTypeNode() {
-    DocumentTypeNode.super(this, WNodeType.documentType);
+    DocumentTypeNode.super.call(this, WNodeType.documentType);
 }
 
 utils.inherit(DocumentFragmentNode, SNode);
 // document fragment node
 function DocumentFragmentNode() {
-    DocumentFragmentNode.super(this, WNodeType.documentFragment, '#document-fragment');
+    DocumentFragmentNode.super.call(this, WNodeType.documentFragment, '#document-fragment');
 }
 
 utils.inherit(AttrNode, SNode);
 // attribute node
 function AttrNode(name) {
-    AttrNode.super(this, WNodeType.attribute, name);
+    AttrNode.super.call(this, WNodeType.attribute, name);
     this.binding = new Binding();
     this.element = null;
     this.component = null;
@@ -514,6 +542,17 @@ AttrNode.prototype.getInnerTpl = function () {
     return this.nodeName + (this.nodeValue == null ? '' : ('=' + this.nodeValue));
 };
 
+AttrNode.prototype.destroy = function(){
+    if(this.directive != null){
+        this.directive.$destroy();
+        this.directive = null;
+    }
+    this.binding.destroy();
+    this.binding = null;
+    this.element = null;
+    this.component = null;
+};
+
 function ExpNode(text) {
     this.text = text;
     this.value = null;
@@ -608,9 +647,13 @@ Binding.prototype.detect = function (options) {
     });
 };
 
+Binding.prototype.destroy = function () {
+    this.scope = null;
+};
+
 utils.inherit(HtmlParser, Parser);
 function HtmlParser(lexer, options) {
-    HtmlParser.super(this, lexer, options);
+    HtmlParser.super.call(this, lexer, options);
 }
 
 HtmlParser.prototype.parse = function (text) {

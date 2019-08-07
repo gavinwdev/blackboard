@@ -11,32 +11,25 @@
         var scope = {
             props: {
                 content: 'Hello Blackboard!',
-                fontSizes: [
-                    {
-                        value: 100,
-                        selected: false
-                    },
-                    {
-                        value: 200,
-                        selected: false
-                    },
-                    {
-                        value: 300,
-                        selected: true
-                    },
-                    {
-                        value: 400,
-                        selected: false
-                    },
-                    {
-                        value: 500,
-                        selected: false
-                    }
-                ]
+                fontSizes: []
             },
             methods: {
                 onClick: function () {
+                    this.fontSizes.push({
+                        value: 'new',
+                        selected: false
+                    });
+                }
+            },
+            onCreated: function () {
+                var count = 0;
 
+                while(count < 10000) {
+                    this.fontSizes.push({
+                        value: count,
+                        selected: count === 10
+                    });
+                    count++;
                 }
             }
         };

@@ -57,9 +57,17 @@ function compile(html) {
 
         if (!isComponent(scope)) {
             scope.$directives = [];
+            scope.$childComponents = [];
+
             scope.$detect = function () {
                 astNodes.forEach(function (astNode) {
                     astNode.detect();
+                });
+            };
+
+            scope.$destroy = function () {
+                astNodes.forEach(function (astNode) {
+                    astNode.destroy();
                 });
             };
         }
