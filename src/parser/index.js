@@ -31,14 +31,24 @@ function bootstrap(idOrElement, def) {
         element = idOrElement;
     }
 
-    def.template = element.innerHTML;
+    def.template = element.outerHTML;
     injector.createComponent(component(elementId, def)).$mount(idOrElement);
 }
 
-function compile(html) {
+function parse(html) {
     var lexer = new HtmlLexer(parseOptions);
     var parser = new HtmlParser(lexer, parseOptions);
-    var astNodes = parser.parse(html);
+    return parser.parse(html);
+}
+
+function compile(html, options) {
+    var defaults = {
+            getEmbedTpl: function () {
+                return '';
+            }
+        },
+        settings = utils.merge(defaults, options),
+        astNodes = parse(html);
 
     astNodes.forEach(function (astNode) {
         astNode.compile();
@@ -46,7 +56,7 @@ function compile(html) {
 
     astNodes.forEach(function (astNode) {
         astNode.getDir().forEach(function (directive) {
-            directive.$compile();
+            directive.$compile(settings);
         });
     });
 
@@ -102,4 +112,4 @@ function compute(exp, scope, options) {
     return parser.parse(exp).compile(scope, options);
 }
 
-export { bootstrap, compile, compute };
+export { bootstrap, compile, compute, parse };

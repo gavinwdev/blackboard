@@ -7,6 +7,7 @@ import axios from 'axios';
 
 export default function Component() {
     this.$astNodes = [];
+    this.$ownerVNode = null;
     this.$parent = null;
     this.$childComponents = [];
     this.$directives = [];
@@ -44,7 +45,11 @@ Component.prototype.$render = function () {
     var self = this;
     return new Promise(function (resolve) {
         self.$getTemplate().then(function (html) {
-            resolve(compile(html)(self));
+            resolve(compile(html, {
+                getEmbedTpl: function () {
+                    return self.$ownerVNode.getInnerTpl();
+                }
+            })(self));
         });
     });
 };
@@ -174,6 +179,7 @@ Component.prototype.$onDestroyed = function () {
         this.$def.onDestroyed.call(this);
     }
     this.$astNodes = null;
+    this.$ownerVNode = null;
     this.$parent = null;
     this.$childComponents = null;
     this.$directives = null;

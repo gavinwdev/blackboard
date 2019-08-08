@@ -2,7 +2,7 @@ import * as utils from '../utility/utils';
 import * as eleUtils from '../utility/ele-utils';
 import { Parser } from './parser';
 import { injector } from '../view';
-import {compute} from './index';
+import { compute, parse } from './index';
 
 // // Window Events
 // case 'on-load':
@@ -47,46 +47,114 @@ var WNodeType = {
 };
 
 // basic node
-function SNode(type, name) {
+function VNode(type, name, value) {
     this.nodeType = type;
     this.nodeName = name;
-    this.nodeValue = '';
+    this.nodeValue = value;
     this.childNodes = [];
     this.parentNode = null;
     this.previousSibling = null;
     this.nextSibling = null;
     this.firstChild = null;
     this.lastChild = null;
-    this.ownerDocument = null;
+    this.ownerVDocument = null;
     this.scope = null;
 }
 
-SNode.prototype.hasChildNodes = function () {
+VNode.$destroy = function (self) {
+    self.childNodes.length = 0;
+    self.parentNode = null;
+    self.previousSibling = null;
+    self.nextSibling = null;
+    self.firstChild = null;
+    self.lastChild = null;
+    self.ownerVDocument = null;
+    self.scope = null;
+};
+
+VNode.prototype.$pushChild = function (child) {
+    child.parentNode = this;
+    this.childNodes.push(child);
+};
+
+VNode.prototype.$buildSibling = function () {
+    if (this.childNodes.length === 0) {
+        return;
+    }
+
+    var self = this;
+
+    if (this.childNodes.length === 1) {
+        this.firstChild = this.childNodes[0];
+        this.lastChild = this.childNodes[0];
+    }
+    else {
+        this.firstChild = this.childNodes[0];
+        this.lastChild = this.childNodes[this.childNodes.length - 1];
+
+        this.childNodes.forEach(function (child, index) {
+            if (index === 0) {
+                child.nextSibling = self.childNodes[index + 1];
+                return;
+            }
+            if (index === (self.childNodes.length - 1)) {
+                child.previousSibling = self.childNodes[index - 1];
+                return;
+            }
+            child.previousSibling = self.childNodes[index - 1];
+            child.nextSibling = self.childNodes[index + 1];
+        });
+    }
+
+    this.childNodes.forEach(function (child) {
+        child.$buildSibling();
+    });
+};
+
+VNode.prototype.hasChildNodes = function () {
     return this.childNodes.length !== 0;
 };
 
-SNode.prototype.createElement = function(name){
+VNode.prototype.clearChildNodes = function () {
+    this.childNodes.forEach(function (child) {
+        child.destroy();
+    });
+    this.childNodes.length = 0;
+};
+
+VNode.prototype.createElement = function(name){
     return new ElementNode(name);
 };
 
-SNode.prototype.createAttr = function (name) {
+VNode.prototype.createAttr = function (name) {
     return new AttrNode(name);
 };
 
-SNode.prototype.createCustom = function (name, linker) {
+VNode.prototype.createCustom = function (name, linker) {
     return new CustomNode(name, linker);
 };
 
-SNode.prototype.appendChild = function (child) {
+VNode.prototype.appendChild = function (child) {
     if (child.parentNode != null) {
         throw new Error('Append child is not new');
     }
 
-    this.childNodes.push(child);
     child.parentNode = this;
+
+    if (this.childNodes.length === 0) {
+        this.firstChild = child;
+    }
+    else {
+        this.lastChild.nextSibling = child;
+        child.previousSibling = this.lastChild;
+    }
+
+    child.compile();
+    this.lastChild = child;
+    this.childNodes.push(child);
 };
 
-SNode.prototype.insertBefore = function (refChild, newChild) {
+VNode.prototype.insertBefore = function (refChild, newChild) {
     if (newChild.parentNode != null) {
         throw new Error('Insert child is not new');
     }
@@ -94,21 +162,63 @@ SNode.prototype.insertBefore = function (refChild, newChild) {
     if (index === -1) {
         throw new Error('Ref node is not a child of specified node');
     }
-    this.childNodes.splice(index, 0, newChild);
-    refChild.parentNode = null;
+
     newChild.parentNode = this;
+
+    if(refChild.previousSibling != null) {
+        newChild.previousSibling = refChild.previousSibling;
+        refChild.previousSibling.nextSibling = newChild;
+    }
+
+    newChild.nextSibling = refChild;
+    refChild.previousSibling = newChild;
+
+    if (index === 0) {
+        this.firstChild = newChild;
+    }
+
+    newChild.compile();
+    this.childNodes.splice(index, 0, newChild);
 };
 
-SNode.prototype.removeChild = function (child) {
+VNode.prototype.insertAfter = function (refChild, newChild) {
+    if (refChild.nextSibling == null) {
+        this.appendChild(newChild);
+    }
+    else {
+        this.insertBefore(refChild.nextSibling, newChild);
+    }
+};
+
+VNode.prototype.removeChild = function (child) {
     var index = this.childNodes.indexOf(child);
     if (index === -1) {
         throw new Error('Remove node is not a child of specified node');
     }
+
+    if(child.previousSibling != null){
+        child.previousSibling.nextSibling = child.nextSibling;
+    }
+
+    if(child.nextSibling != null) {
+        child.nextSibling.previousSibling = child.previousSibling;
+    }
+
+    if(index === 0) {
+        this.firstChild = child.nextSibling;
+    }
+
+    if(index === (this.childNodes.length -1)){
+        this.lastChild = child.previousSibling;
+    }
+
+    child.destroy();
     this.childNodes.splice(index, 1);
-    child.parentNode = null;
+
+    return child;
 };
 
-SNode.prototype.replaceChild = function (refChild, newChild) {
+VNode.prototype.replaceChild = function (refChild, newChild) {
     if (newChild.parentNode != null) {
         throw new Error('Replace child is not new');
     }
@@ -116,22 +226,35 @@ SNode.prototype.replaceChild = function (refChild, newChild) {
     if (index === -1) {
         throw new Error('Ref node is not a child of specified node');
     }
-    this.childNodes.splice(index, 1, newChild);
-    refChild.parentNode = null;
+
     newChild.parentNode = this;
+    newChild.previousSibling = refChild.previousSibling;
+    newChild.nextSibling = refChild.nextSibling;
+
+    if (this.firstChild === refChild) {
+        this.firstChild = newChild;
+    }
+
+    if (this.lastChild === refChild) {
+        this.lastChild = newChild;
+    }
+
+    refChild.destroy();
+    newChild.compile();
+    this.childNodes.splice(index, 1, newChild);
 };
 
-SNode.prototype.cloneNode = function () {
+VNode.prototype.cloneNode = function () {
 
 };
 
-SNode.prototype.compile = function () {
+VNode.prototype.compile = function () {
     this.childNodes.forEach(function (child) {
         child.compile();
     });
 };
 
-SNode.prototype.getDir = function () {
+VNode.prototype.getDir = function () {
     var result = [];
     this.childNodes.map(function (child) {
         return child.getDir();
@@ -141,40 +264,41 @@ SNode.prototype.getDir = function () {
     return result;
 };
 
-SNode.prototype.link = function (scope) {
+VNode.prototype.link = function (scope) {
     this.scope = scope;
     return this.childNodes.map(function (child) {
         child.link(scope);
     });
 };
 
-SNode.prototype.afterLink = function () {
+VNode.prototype.afterLink = function () {
     this.childNodes.forEach(function (child) {
         child.afterLink();
     });
 };
 
-SNode.prototype.detect = function () {
+VNode.prototype.detect = function () {
     if (this.hasChange()) {
         this.update();
     }
 };
 
-SNode.prototype.hasChange = function () {
+VNode.prototype.hasChange = function () {
     return false;
 };
 
-SNode.prototype.update = function () {
+VNode.prototype.update = function () {
 
 };
 
-SNode.prototype.destroy = function () {
+VNode.prototype.destroy = function () {
     this.childNodes.map(function (child) {
         child.destroy();
     });
+    VNode.$destroy(this);
 };
 
-utils.inherit(CustomNode, SNode);
+utils.inherit(CustomNode, VNode);
 // custom node
 function CustomNode(name, linker) {
     CustomNode.super.call(this, WNodeType.custom, name);
@@ -214,30 +338,120 @@ CustomNode.prototype.destroy = function() {
     if (utils.isFunction(this.onDestroy)) {
         return this.onDestroy.call(this);
     }
+    VNode.$destroy(this);
 };
 
-utils.inherit(DocumentNode, SNode);
+utils.inherit(DocumentNode, VNode);
 // document node
 function DocumentNode() {
     CustomNode.super.call(this, WNodeType.document);
 }
 
-utils.inherit(ElementNode, SNode);
+utils.inherit(ElementNode, VNode);
 // element node
 function ElementNode(name) {
     ElementNode.super.call(this, WNodeType.element, name);
+    this.attributes = [];
     this.element = null;
     this.component = null;
     this.selfClosed = false;
 }
 
+ElementNode.prototype.$pushAttribute = function (attr) {
+    attr.ownerVElement = this;
+    this.attributes.push(attr);
+};
+
+ElementNode.prototype.hasAttributes = function () {
+    return this.attributes.length !== 0;
+};
+
+ElementNode.prototype.setAttribute = function (key, value) {
+    var target, matches = this.attributes.filter(function (attr) {
+        return attr.belongTo(key);
+    });
+
+    if (matches.length > 0) {
+        target = matches[0];
+        target.setValue(value);
+    }
+    else {
+        target = new AttrNode(key, value);
+        target.ownerVElement = this;
+        target.compile();
+    }
+
+    this.attributes.push(attr);
+
+    return target;
+};
+
+ElementNode.prototype.removeAttribute = function (key) {
+    var target = [], self = this;
+
+    if (key instanceof AttrNode) {
+        var index = this.attributes.indexOf(key);
+        if (index !== -1) {
+            target = self.attributes.splice(index, 1);
+        }
+    }
+    else {
+        this.attributes.filter(function (attr) {
+            return attr.belongTo(key);
+        }).forEach(function (match) {
+            var index = self.attributes.indexOf(match);
+            match.destroy();
+            target = self.attributes.splice(index, 1);
+        });
+    }
+
+    return target.length > 0 ? target[0] : null;
+};
+
+ElementNode.prototype.appendAttribute = function (attr) {
+    if (attr.ownerVElement != null) {
+        throw new Error("Current attribute is not new!");
+    }
+
+    attr.ownerVElement = this;
+    attr.compile();
+    this.attributes.push(attr);
+    return attr;
+};
+
 ElementNode.prototype.compile = function () {
     if (injector.containsComponent(this.nodeName)) {
         this.component = injector.createComponent(this.nodeName);
+        this.component.$ownerVNode = this;
     }
-    this.childNodes.forEach(function (child) {
-        child.compile();
+    this.attributes.forEach(function (attr) {
+        attr.compile();
     });
+    if (this.component == null) {
+        this.childNodes.forEach(function (child) {
+            child.compile();
+        });
+    }
+};
+
+ElementNode.prototype.getDir = function () {
+    var result = [];
+
+    this.attributes.map(function (attr) {
+        return attr.getDir();
+    }).forEach(function (item) {
+        result = result.concat(item);
+    });
+
+    if(this.component == null){
+        this.childNodes.map(function (child) {
+            return child.getDir();
+        }).forEach(function (item) {
+            result = result.concat(item);
+        });
+    }
+
+    return result;
 };
 
 ElementNode.prototype.link = function (scope) {
@@ -246,61 +460,59 @@ ElementNode.prototype.link = function (scope) {
     self.scope = scope;
     self.element = document.createElement(self.nodeName);
 
-    if (self.component != null) {
-        scope.$childComponents.push(self.component);
-        self.component.$parent = scope;
-        self.childNodes.forEach(function (child) {
-            switch (child.nodeType) {
-                case WNodeType.attribute: {
-                    child.link(scope, self.element, self.component);
-                }
-                    break;
-            }
+    if (self.component == null) {
+        this.attributes.forEach(function (attr) {
+            attr.link(scope, self.element);
         });
-        self.component.$mount(self.element);
+        self.childNodes.forEach(function (child) {
+            self.element.appendChild(child.link(scope));
+        });
     }
     else {
-        self.childNodes.forEach(function (child) {
-            switch (child.nodeType) {
-                case WNodeType.custom:
-                case WNodeType.element:
-                case WNodeType.text: {
-                    self.element.appendChild(child.link(scope));
-                }
-                    break;
-                case WNodeType.attribute: {
-                    child.link(scope, self.element);
-                }
-                    break;
-            }
+        scope.$childComponents.push(self.component);
+        self.component.$parent = scope;
+        self.attributes.forEach(function (attr) {
+            attr.link(scope, self.element, self.component);
         });
+        self.component.$mount(self.element);
     }
 
     return self.element;
 };
 
-ElementNode.prototype.detect = function () {
-    this.childNodes.forEach(function (child) {
-        child.detect();
+ElementNode.prototype.afterLink = function () {
+    this.attributes.forEach(function (attr) {
+        attr.afterLink();
     });
+
+    if (this.component == null) {
+        this.childNodes.forEach(function (child) {
+            child.afterLink();
+        });
+    }
+};
+
+ElementNode.prototype.detect = function () {
+    this.attributes.forEach(function (attr) {
+        attr.detect();
+    });
+    if (this.component == null) {
+        this.childNodes.forEach(function (child) {
+            child.detect();
+        });
+    }
 };
 
 ElementNode.prototype.getOuterTpl = function () {
     var attrTpl = '', childTpl = '';
 
+    this.attributes.forEach(function (attr) {
+        attrTpl += ' ';
+        attrTpl += attr.getOuterTpl();
+    });
+
     this.childNodes.forEach(function (child) {
-        switch (child.nodeType) {
-            case WNodeType.element:
-            case WNodeType.text: {
-                childTpl += child.getOuterTpl();
-            }
-                break;
-            case WNodeType.attribute: {
-                attrTpl += ' ';
-                attrTpl += child.getOuterTpl();
-            }
-                break;
-        }
+        childTpl += child.getOuterTpl();
     });
 
     var tpl = '<' + this.nodeName + attrTpl + '>' + childTpl;
@@ -316,31 +528,191 @@ ElementNode.prototype.getInnerTpl = function () {
     var childTpl = '';
 
     this.childNodes.forEach(function (child) {
-        switch (child.nodeType) {
-            case WNodeType.element:
-            case WNodeType.text: {
-                childTpl += child.getOuterTpl();
-            }
-                break;
-        }
+        childTpl += child.getOuterTpl();
     });
 
     return childTpl;
+};
+
+ElementNode.prototype.setOuterTpl = function (tpl) {
+    var self = this;
+    parse(tpl).forEach(function (vnode) {
+        vnode.parentNode = null;
+        self.parentNode.insertBefore(self, vnode);
+    });
+    self.parentNode.removeChild(self);
+};
+
+ElementNode.prototype.setInnerTpl = function (tpl) {
+    var self = this;
+    this.clearChildNodes();
+    parse(tpl).forEach(function (vnode) {
+        vnode.parentNode = null;
+        self.appendChild(vnode);
+    });
 };
 
 ElementNode.prototype.destroy = function () {
     this.childNodes.map(function (child) {
         child.destroy();
     });
-    this.childNodes.length = 0;
+    this.attributes.map(function (attr) {
+        attr.destroy();
+    });
+    this.attributes.length = 0;
     if (this.component != null) {
         this.component.$destroy();
         this.component = null;
     }
     this.element = null;
+    VNode.$destroy(this);
 };
 
-utils.inherit(TextNode, SNode);
+utils.inherit(AttrNode, VNode);
+// attribute node
+function AttrNode(name, value) {
+    AttrNode.super.call(this, WNodeType.attribute, name, value);
+    this.quote = '"';
+    this.orgNodeName = name;
+    this.isEvent = false;
+    this.isBinding = false;
+    this.isDomEvent = false;
+    this.isDirective = false;
+    this.directive = null;
+    this.ownerVElement = null;
+    this.ownerElement = null;
+    this.ownerComponent = null;
+    this.binding = new Binding();
+}
+
+AttrNode.prototype.belongTo = function (key) {
+    return this.orgNodeName === key;
+};
+
+AttrNode.prototype.setValue = function (value) {
+    this.nodeValue = value;
+    this.compile();
+}
+
+AttrNode.prototype.compile = function () {
+    this.orgNodeName = this.nodeName;
+    this.isEvent = this.nodeName.startsWith('@');
+    this.isBinding = this.nodeName.startsWith(':');
+    this.isDirective = this.nodeName.startsWith('*');
+    if (this.isEvent || this.isBinding || this.isDirective) {
+        this.nodeName = this.nodeName.substr(1);
+    }
+    this.isDomEvent = utils.contains(domEvents, this.nodeName);
+
+    if (this.isDirective) {
+        if (injector.containsDirective(this.nodeName)) {
+            this.directive = injector.createDirective(this.nodeName);
+            this.directive.$bindNode(this);
+        }
+        else {
+            throw new Error('directive ' + this.nodeName + ' is not defined');
+        }
+    }
+    this.binding.setOutput(this.isEvent || (this.directive && this.directive.output));
+    this.binding.bind(this.nodeValue, this.isEvent || this.isBinding || this.isDirective);
+};
+
+AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
+    var self = this;
+
+    this.scope = scope;
+    this.ownerElement = ownerElement;
+    this.ownerComponent = ownerComponent;
+    this.binding.setScope(scope);
+
+    if (this.isEvent) {
+        if (this.isDomEvent) {
+            this.ownerElement.addEventListener(this.nodeName, function (e) {
+                self.binding.compute({
+                    locals: {
+                        $event: e,
+                        $args: null
+                    }
+                });
+            });
+        }
+        else if (ownerComponent != null) {
+            ownerComponent.$listen(this.nodeName, function (e, args) {
+                self.binding.compute({
+                    locals: {
+                        $event: e,
+                        $args: args
+                    }
+                });
+            });
+        }
+    }
+    else {
+        if (this.directive) {
+            scope.$directives.push(this.directive);
+            this.directive.$bindValue(this.binding);
+        }
+        else if (ownerComponent != null && ownerComponent.$hasAttr(this.nodeName)) {
+            ownerComponent.$setAttr(this.nodeName, this.binding.compute());
+        }
+        else {
+            this.ownerElement.setAttribute(this.nodeName, this.binding.compute());
+        }
+    }
+};
+
+AttrNode.prototype.hasChange = function () {
+    return this.binding.detect();
+};
+
+AttrNode.prototype.update = function () {
+    if (this.directive) {
+        this.directive.$update(this.ownerElement, this.ownerComponent);
+    }
+    else if (this.ownerComponent != null && this.ownerComponent.$hasAttr(this.nodeName)) {
+        this.ownerComponent.$setAttr(this.nodeName, this.binding.compute());
+    }
+    else {
+        var newValue = this.binding.compute();
+        this.ownerElement.setAttribute(this.nodeName, newValue);
+        if (this.ownerElement.nodeName === 'INPUT' && this.nodeName === 'value') {
+            this.ownerElement.value = newValue;
+        }
+    }
+};
+
+AttrNode.prototype.afterLink = function () {
+    if (this.directive) {
+        this.directive.$insert(this.ownerElement, this.ownerComponent);
+    }
+};
+
+AttrNode.prototype.getDir = function () {
+    return this.directive == null ? [] : [this.directive];
+};
+
+AttrNode.prototype.getOuterTpl = function () {
+    return (this.orgNodeName == null? this.nodeName: this.orgNodeName) + (this.nodeValue == null ? '' : ('=' + this.quote + this.nodeValue + this.quote));
+};
+
+AttrNode.prototype.getInnerTpl = function () {
+    return (this.orgNodeName == null? this.nodeName: this.orgNodeName) + (this.nodeValue == null ? '' : ('=' + this.quote + this.nodeValue + this.quote));
+};
+
+AttrNode.prototype.destroy = function(){
+    if(this.directive != null){
+        this.directive.$destroy();
+        this.directive = null;
+    }
+    this.binding.destroy();
+    this.binding = null;
+    this.ownerVElement = null;
+    this.ownerElement = null;
+    this.ownerComponent = null;
+    VNode.$destroy(this);
+};
+
+utils.inherit(TextNode, VNode);
 // text node
 function TextNode() {
     TextNode.super.call(this, WNodeType.text, '#text');
@@ -383,9 +755,10 @@ TextNode.prototype.destroy = function () {
     this.binding.destroy();
     this.binding = null;
     this.element = null;
+    VNode.$destroy(this);
 };
 
-utils.inherit(CommentNode, SNode);
+utils.inherit(CommentNode, VNode);
 // comment node
 function CommentNode() {
     CommentNode.super.call(this, WNodeType.comment, '#comment');
@@ -395,163 +768,23 @@ CommentNode.prototype.link = function () {
     return document.createComment(this.nodeValue);
 };
 
-utils.inherit(CDataSectionNode, SNode);
+utils.inherit(CDataSectionNode, VNode);
 // CDataSection node
 function CDataSectionNode() {
     CDataSectionNode.super.call(this, WNodeType.cdataSection);
 }
 
-utils.inherit(DocumentTypeNode, SNode);
+utils.inherit(DocumentTypeNode, VNode);
 // document type node
 function DocumentTypeNode() {
     DocumentTypeNode.super.call(this, WNodeType.documentType);
 }
 
-utils.inherit(DocumentFragmentNode, SNode);
+utils.inherit(DocumentFragmentNode, VNode);
 // document fragment node
 function DocumentFragmentNode() {
     DocumentFragmentNode.super.call(this, WNodeType.documentFragment, '#document-fragment');
 }
-
-utils.inherit(AttrNode, SNode);
-// attribute node
-function AttrNode(name) {
-    AttrNode.super.call(this, WNodeType.attribute, name);
-    this.binding = new Binding();
-    this.element = null;
-    this.component = null;
-    this.nodeName2 = '';
-    this.nodeValue2 = '';
-    this.directive = null;
-    this.isEvent = false;
-    this.isDirective = false;
-    this.isBinding = false;
-    this.isDomEvent = false;
-}
-
-AttrNode.prototype.compile = function () {
-    if (this.nodeName.startsWith('data-')) {
-        this.nodeName2 = this.nodeName.substr(5);
-    }
-    else {
-        this.nodeName2 = this.nodeName;
-    }
-    this.isEvent = this.nodeName2.startsWith('@');
-    this.isBinding = this.nodeName2.startsWith(':');
-    this.isDirective = this.nodeName2.startsWith('*');
-    if (this.isEvent || this.isBinding || this.isDirective) {
-        this.nodeName2 = this.nodeName2.substr(1);
-    }
-    this.isDomEvent = utils.contains(domEvents, this.nodeName2);
-
-    if (this.isDirective) {
-        if (injector.containsDirective(this.nodeName2)) {
-            this.directive = injector.createDirective(this.nodeName2);
-            this.directive.$bindNode(this);
-        }
-        else {
-            throw new Error('directive ' + this.nodeName2 + ' is not defined');
-        }
-    }
-    if (this.nodeValue) {
-        this.nodeValue2 = this.nodeValue.substring(1, this.nodeValue.length - 1);
-    }
-    this.binding.setOutput(this.isEvent || (this.directive && this.directive.output));
-    this.binding.bind(this.nodeValue2, this.isEvent || this.isBinding || this.isDirective);
-};
-
-AttrNode.prototype.link = function (scope, element, component) {
-    var self = this;
-
-    this.scope = scope;
-    this.element = element;
-    this.component = component;
-    this.binding.setScope(scope);
-
-    if (this.isEvent) {
-        if (this.isDomEvent) {
-            this.element.addEventListener(this.nodeName2, function (e) {
-                self.binding.compute({
-                    locals: {
-                        $event: e,
-                        $args: null
-                    }
-                });
-            });
-        }
-        else if (component != null) {
-            component.$listen(this.nodeName2, function (e, args) {
-                self.binding.compute({
-                    locals: {
-                        $event: e,
-                        $args: args
-                    }
-                });
-            });
-        }
-    }
-    else {
-        if (this.directive) {
-            scope.$directives.push(this.directive);
-            this.directive.$bindValue(this.binding);
-        }
-        else if (component != null && component.$hasAttr(this.nodeName2)) {
-            component.$setAttr(this.nodeName2, this.binding.compute());
-        }
-        else {
-            this.element.setAttribute(this.nodeName2, this.binding.compute());
-        }
-    }
-};
-
-AttrNode.prototype.hasChange = function () {
-    return this.binding.detect();
-};
-
-AttrNode.prototype.update = function () {
-    if (this.directive) {
-        this.directive.$update(this.element, this.component);
-    }
-    else if (this.component != null && this.component.$hasAttr(this.nodeName2)) {
-        this.component.$setAttr(this.nodeName2, this.binding.compute());
-    }
-    else {
-        var newValue = this.binding.compute();
-        this.element.setAttribute(this.nodeName2, newValue);
-        if (this.element.nodeName === 'INPUT' && this.nodeName2 === 'value') {
-            this.element.value = newValue;
-        }
-    }
-};
-
-AttrNode.prototype.afterLink = function () {
-    if (this.directive) {
-        this.directive.$insert(this.element, this.component);
-    }
-};
-
-AttrNode.prototype.getDir = function () {
-    return this.directive == null ? [] : [this.directive];
-};
-
-AttrNode.prototype.getOuterTpl = function () {
-    return this.nodeName + (this.nodeValue == null ? '' : ('=' + this.nodeValue));
-};
-
-AttrNode.prototype.getInnerTpl = function () {
-    return this.nodeName + (this.nodeValue == null ? '' : ('=' + this.nodeValue));
-};
-
-AttrNode.prototype.destroy = function(){
-    if(this.directive != null){
-        this.directive.$destroy();
-        this.directive = null;
-    }
-    this.binding.destroy();
-    this.binding = null;
-    this.element = null;
-    this.component = null;
-};
 
 function ExpNode(text) {
     this.text = text;
@@ -586,6 +819,10 @@ Binding.prototype.setOutput = function (value) {
 };
 
 Binding.prototype.bind = function (text, isExp) {
+    if(text == null) {
+        return;
+    }
+
     this.text = text;
     this.isExp = isExp;
 
@@ -670,7 +907,7 @@ HtmlParser.prototype.parse = function (text) {
             if (allowDocType) {
                 if (!doctype) {
                     doctype = this.doctype();
-                    root.childNodes.push(doctype);
+                    root.$pushChild(doctype);
                 }
                 else {
                     this.throwError("DOCTYPE only allow one", token);
@@ -683,24 +920,24 @@ HtmlParser.prototype.parse = function (text) {
         else if (token.comment) {
             var comment = new CommentNode();
             comment.nodeValue = token.text;
-            comment.parentNode = root;
-            root.childNodes.push(comment);
+            root.$pushChild(comment);
             this.next();
         }
         else if (token.textTag) {
             var text = new TextNode();
             text.nodeValue = token.text;
-            text.parentNode = root;
-            root.childNodes.push(text);
+            root.$pushChild(text);
             this.next();
         }
         else if (token.tag && token.begin) {
-            root.childNodes.push(this.element(root));
+            root.$pushChild(this.element());
         }
         else {
             this.throwError("impossible", token);
         }
     }
+
+    root.$buildSibling();
 
     return root.childNodes;
 };
@@ -737,7 +974,6 @@ HtmlParser.prototype.element = function (p) {
     this.next();
     var ele = new ElementNode();
     var token = this.current();
-    ele.parentNode = p;
 
     if (token.identifier) {
         ele.nodeName = token.text;
@@ -748,7 +984,7 @@ HtmlParser.prototype.element = function (p) {
     }
 
     this.attrs(ele).forEach(function (attr) {
-        ele.childNodes.push(attr);
+        ele.$pushAttribute(attr);
     });
 
     token = this.current();
@@ -760,7 +996,7 @@ HtmlParser.prototype.element = function (p) {
         }
         if (!token.closing) {
             this.childElements(ele).forEach(function (child) {
-                ele.childNodes.push(child);
+                ele.$pushChild(child);
             });
         }
     }
@@ -810,14 +1046,12 @@ HtmlParser.prototype.childElements = function (p) {
         else if (token.comment) {
             var comment = new CommentNode();
             comment.nodeValue = token.text;
-            comment.parentNode = p;
             eles.push(comment);
             this.next();
         }
         else if (token.textTag) {
             var text = new TextNode();
             text.nodeValue = token.text;
-            text.parentNode = p;
             eles.push(text);
             this.next();
         }
@@ -843,7 +1077,6 @@ HtmlParser.prototype.attrs = function (p) {
         }
 
         var attr = new AttrNode();
-        attr.parentNode = p;
 
         if (token.identifier) {
             attr.nodeName = token.text;
@@ -853,7 +1086,7 @@ HtmlParser.prototype.attrs = function (p) {
                 this.next();
                 token = this.current();
                 if (token.constant) {
-                    attr.nodeValue = token.text;
+                    attr.nodeValue = token.value;
                     this.next();
                 }
                 else {

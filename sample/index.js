@@ -3,8 +3,11 @@
 
     var blackboard = global.blackboard;
 
-    blackboard.component('font-weight', {
-        template: ''
+    blackboard.component('test-embed', {
+        template: '<div *b-embed></div>',
+        props: {
+            name: 'embed'
+        }
     });
 
     global.onload = function () {
@@ -24,7 +27,7 @@
             onCreated: function () {
                 var count = 0;
 
-                while(count < 10000) {
+                while(count < 100) {
                     this.fontSizes.push({
                         value: count,
                         selected: count === 10

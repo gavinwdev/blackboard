@@ -79,9 +79,9 @@ directive('b-model', {
 });
 
 directive('b-repeat', {
-    onCompile: function (node) {
-        var arg = node.nodeValue2;
-        var eleNode = node.parentNode;
+    onCompile: function (attrNode, options) {
+        var arg = attrNode.nodeValue;
+        var eleNode = attrNode.ownerVElement;
         var pattern = /^(\w+)\s+in\s+(\w+)$/i;
         var result = pattern.exec(arg);
 
@@ -92,7 +92,7 @@ directive('b-repeat', {
         var itemExp = result[1];
         var itemsExp = result[2];
 
-        eleNode.removeChild(node);
+        eleNode.removeAttribute(attrNode);
 
         var currentScope, currentItems, start, end, childScopes = [];
         var tpl = eleNode.getOuterTpl();
@@ -141,10 +141,6 @@ directive('b-repeat', {
         };
 
         function hasChange(newArr, oldArr) {
-            if (newArr !== oldArr) {
-                return true;
-            }
-
             if (newArr.length !== oldArr.length) {
                 return true;
             }
@@ -177,13 +173,22 @@ directive('b-repeat', {
             childScopes = [];
             utils.forEach(items, function (key, item) {
                 var childScope = new ChildScope(item);
-                var element = compile(tpl)(childScope);
+                var element = compile(tpl, options)(childScope);
                 childScopes.push(childScope);
                 fragment.appendChild(element);
             });
 
             utils.removeBetween(start, end);
             end.parentNode.insertBefore(fragment, end);
+        }
+    }
+});
+
+directive('b-embed', {
+    onCompile: function (attrNode, options) {
+        var embedTpl = options.getEmbedTpl();
+        if(embedTpl){
+            attrNode.ownerVElement.setInnerTpl(embedTpl);
         }
     }
 });
