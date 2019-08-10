@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Syntax</title>
+</head>
+
+<body>
+    <div id="app">
+        <!--data binding-->
+        <input type="text" :value="value">
+
+        <!--event binding-->
+        <input type="text" :value="value" @change="onchange()">
+
+        <!--event binding, pass arguments-->
+        <input type="text" :value="value" @change="onchange($event)">
+
+        <!--two-way binding with directive-->
+        <input type="text" *b-model="value">
+
+        <!--using directive-->
+        <div *b-bind="value"></div>
+
+        <!--using component, pass arguments-->
+        <note content="value"></note>
+
+        <!--using component, pass arguments using data binding-->
+        <note :content="value"></note>
+    </div>
+    <script src="../lib/axios.js"></script>
+    <script src="../../dist/blackboard.js"></script>
+    <script src="./index.js"></script>
+</body>
+
+</html>
