@@ -1,7 +1,7 @@
 window.onload = function(){
 
     blackboard.component('note', {
-        template: '<div :b-bind="content"></div>',
+        template: '<div *b-bind="content"></div>',
         props: {
             content: ''
         },

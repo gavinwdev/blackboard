@@ -76,7 +76,7 @@ Currently it has dependency for axio.js to load remote template, but plan to rem
 window.onload = function(){
 
     blackboard.component('note', {
-        template: '<div :b-bind="content"></div>',
+        template: '<div *b-bind="content"></div>',
         props: {
             content: ''
         },
