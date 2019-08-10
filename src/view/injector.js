@@ -238,7 +238,7 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
             throw new Error(options.contractType + ': ' + def.extends + ' is protected, it is not allowed to extend!');
         }
 
-        return utils.merge(true, utils.copy(superOne.prototype.$def), def);
+        return utils.merge(true, utils.copy(true, superOne.prototype.$def), def);
     }
 
     function remainConstructor(name, def, constructor) {

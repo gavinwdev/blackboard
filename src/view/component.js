@@ -64,7 +64,7 @@ Component.prototype.$mount = function (idOrElement) {
         element = idOrElement;
     }
 
-    eleUtils.empty(element);
+    eleUtils.clearChildNodes(element);
     this.$render().then(function (ele) {
         self.$onMounting();
         element.appendChild(ele);

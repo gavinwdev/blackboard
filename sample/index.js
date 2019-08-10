@@ -14,7 +14,8 @@
         var scope = {
             props: {
                 content: 'Hello Blackboard!',
-                fontSizes: []
+                fontSizes: [],
+                num: 2
             },
             methods: {
                 onClick: function () {
@@ -22,6 +23,8 @@
                         value: 'new',
                         selected: false
                     });
+
+                    this.num = 1;
                 }
             },
             onCreated: function () {

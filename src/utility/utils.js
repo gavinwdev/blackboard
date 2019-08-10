@@ -2,10 +2,6 @@ var debugMode = true,
     toString = Object.prototype.toString,
     getPrototypeOf = Object.getPrototypeOf;
 
-function isArray(obj) {
-    return obj instanceof Array;
-}
-
 function forEach(obj, action) {
     if (isArray(obj)) {
         for (var index = 0; index < obj.length; index++) {
@@ -28,17 +24,46 @@ function forEach(obj, action) {
     }
 }
 
-function copy(obj) {
+function some(obj, action) {
+    if (isArray(obj)) {
+        for (var index = 0; index < obj.length; index++) {
+            if (action(index, obj[index])) {
+                return true;
+            }
+        }
+    }
+    else if (isObject(obj)) {
+        for (var p in obj) {
+            if (obj.hasOwnProperty(p)) {
+                if (action(p, obj[p])) {
+                    return true;
+                }
+            }
+        }
+    }
+    else {
+        return action(obj, obj);
+    }
+}
+
+function copy() {
+    var deep = false, index = 0, obj = arguments[index];
+
+    if (isBoolean(obj)) {
+        deep = obj;
+        obj = arguments[++index];
+    }
+
     if (isArray(obj)) {
         return obj.map(function (item) {
-            return copy(item);
+            return deep ? copy(item) : item;
         });
     }
 
     if (isObject(obj)) {
-        var newObj = {};
+        var newObj = object(obj);
         forEach(obj, function (key, value) {
-            newObj[key] = copy(value);
+            newObj[key] = deep ? copy(value) : value;
         });
         return newObj;
     }
@@ -147,6 +172,10 @@ function isDefined(value) {
     return typeof value !== 'undefined';
 }
 
+function isArray(obj) {
+    return obj instanceof Array;
+}
+
 function isObject(value) {
     return value !== null && typeof value === 'object';
 }
@@ -177,6 +206,27 @@ function isRegExp(value) {
 
 function isBoolean(value) {
     return typeof value === 'boolean';
+}
+
+function isSame(obj1, obj2) {
+    var same = (obj1 === obj2);
+
+    if (!same) {
+        if (isArray(obj1) && isArray(obj2)) {
+            if (obj1.length === obj2.length) {
+                same = !some(obj1, function (index, value) {
+                    return !isSame(value, obj2[index]);
+                });
+            }
+        }
+        else if (isObject(obj1) && isObject(obj2) && getPrototypeOf(obj1) === getPrototypeOf(obj2)) {
+            same = !some(obj1, function (key, value) {
+                return !isSame(value, obj2[key]);
+            });
+        }
+    }
+
+    return same;
 }
 
 function debug(log) {
@@ -272,6 +322,7 @@ function setProperty(obj, key, value, ignoreCase) {
 
 export {
     forEach,
+    some,
     copy,
     extend,
     merge,
@@ -290,6 +341,7 @@ export {
     isBoolean,
     isArray,
     isString,
+    isSame,
     debug,
     contains,
     containsStr,

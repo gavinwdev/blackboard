@@ -264,6 +264,10 @@ VNode.prototype.getDir = function () {
     return result;
 };
 
+VNode.prototype.searchDir = function () {
+    return [];
+};
+
 VNode.prototype.link = function (scope) {
     this.scope = scope;
     return this.childNodes.map(function (child) {
@@ -454,6 +458,20 @@ ElementNode.prototype.getDir = function () {
     return result;
 };
 
+ElementNode.prototype.searchDir = function (selector) {
+    var result = [];
+
+    this.attributes.map(function (attr) {
+        return attr.getDir();
+    }).forEach(function (item) {
+        result = result.concat(item);
+    });
+
+    return result.filter(function (item) {
+        return item.$key === selector;
+    });
+};
+
 ElementNode.prototype.link = function (scope) {
     var self = this;
 
@@ -595,7 +613,6 @@ AttrNode.prototype.setValue = function (value) {
 }
 
 AttrNode.prototype.compile = function () {
-    this.orgNodeName = this.nodeName;
     this.isEvent = this.nodeName.startsWith('@');
     this.isBinding = this.nodeName.startsWith(':');
     this.isDirective = this.nodeName.startsWith('*');
@@ -661,15 +678,23 @@ AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
     }
 };
 
+AttrNode.prototype.detect = function () {
+    if (this.directive == null) {
+        if (this.hasChange()) {
+            this.update();
+        }
+    }
+    else {
+        this.directive.$detect(this.ownerElement, this.ownerComponent);
+    }
+};
+
 AttrNode.prototype.hasChange = function () {
     return this.binding.detect();
 };
 
 AttrNode.prototype.update = function () {
-    if (this.directive) {
-        this.directive.$update(this.ownerElement, this.ownerComponent);
-    }
-    else if (this.ownerComponent != null && this.ownerComponent.$hasAttr(this.nodeName)) {
+    if (this.ownerComponent != null && this.ownerComponent.$hasAttr(this.nodeName)) {
         this.ownerComponent.$setAttr(this.nodeName, this.binding.compute());
     }
     else {
@@ -692,11 +717,11 @@ AttrNode.prototype.getDir = function () {
 };
 
 AttrNode.prototype.getOuterTpl = function () {
-    return (this.orgNodeName == null? this.nodeName: this.orgNodeName) + (this.nodeValue == null ? '' : ('=' + this.quote + this.nodeValue + this.quote));
+    return this.orgNodeName + (this.nodeValue == null ? '' : ('=' + this.quote + this.nodeValue + this.quote));
 };
 
 AttrNode.prototype.getInnerTpl = function () {
-    return (this.orgNodeName == null? this.nodeName: this.orgNodeName) + (this.nodeValue == null ? '' : ('=' + this.quote + this.nodeValue + this.quote));
+    return this.orgNodeName + (this.nodeValue == null ? '' : ('=' + this.quote + this.nodeValue + this.quote));
 };
 
 AttrNode.prototype.destroy = function(){
@@ -734,7 +759,7 @@ TextNode.prototype.hasChange = function () {
 };
 
 TextNode.prototype.update = function () {
-    eleUtils.replace(this.element, this.render());
+    eleUtils.replaceNode(this.element, this.render());
 };
 
 TextNode.prototype.render = function () {
@@ -798,7 +823,7 @@ ExpNode.prototype.compute = function (scope, options) {
 ExpNode.prototype.detect = function (scope, options) {
     var oldValue = this.value;
     this.compute(scope, options);
-    return this.value !== oldValue;
+    return !utils.isSame(this.value, oldValue);
 };
 
 function Binding() {
@@ -1080,6 +1105,7 @@ HtmlParser.prototype.attrs = function (p) {
 
         if (token.identifier) {
             attr.nodeName = token.text;
+            attr.orgNodeName = token.text;
             this.next();
             token = this.current();
             if (token.equal) {

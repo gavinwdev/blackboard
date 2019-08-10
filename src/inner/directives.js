@@ -2,6 +2,49 @@ import { directive } from '../view';
 import {compute , compile} from '../parser';
 import * as utils from '../utility';
 
+function makeAttrSetter(attrName) {
+    return function (ele, binding) {
+        if (binding.compute()) {
+            if (!ele.hasAttribute(attrName)) {
+                ele.setAttribute(attrName, '');
+            }
+        }
+        else {
+            if (ele.hasAttribute(attrName)) {
+                ele.removeAttribute(attrName);
+            }
+        }
+    };
+}
+
+directive('b-selected', makeAttrSetter('selected'));
+
+directive('b-disabled', makeAttrSetter('disabled'));
+
+directive('b-checked', makeAttrSetter('checked'));
+
+directive('b-readonly', makeAttrSetter('readonly'));
+
+directive('b-style', function (ele, binding) {
+    var value = binding.compute();
+
+    if (!value) {
+        ele.removeAttribute('style');
+    }
+
+    if (utils.isString(value)) {
+        ele.style = value;
+    }
+    else if (utils.isObject(value)) {
+        utils.forEach(value, function (key, value) {
+            ele.style[key] = value;
+        });
+    }
+    else {
+        throw new Error('Parameter of b-style should be string or object');
+    }
+});
+
 directive('b-show', function (ele, binding) {
     ele.style.display = binding.compute() ? 'initial' : 'none';
 });
@@ -15,24 +58,138 @@ directive('b-if', {
         comment: null
     },
     onInsert: function (ele, binding) {
+        this.comment = document.createComment('b-if');
         if (!binding.compute()) {
-            this.comment = document.createComment(ele.outerHTML);
-            utils.replace(ele, this.comment);
+            utils.replaceNode(ele, this.comment);
         }
     },
     onUpdate: function (ele, binding) {
         if (binding.compute()) {
-            if (this.comment) {
-                utils.replace(this.comment, ele);
-                this.comment = null;
+            if (ele.parentNode == null) {
+                utils.replaceNode(this.comment, ele);
             }
         }
         else {
-            if (!this.comment) {
-                this.comment = document.createComment(ele.outerHTML);
-                utils.replace(ele, this.comment);
+            if (ele.parentNode != null) {
+                utils.replaceNode(ele, this.comment);
             }
         }
+    },
+    onDestroy: function () {
+        this.comment = null;
+    }
+});
+
+directive('b-switch', {
+    props: {
+        value: null
+    },
+    onInsert: function (ele, binding) {
+        this.value = binding.compute();
+    },
+    onUpdate: function (ele, binding) {
+        this.value = binding.compute();
+    }
+});
+
+directive('b-switch-default', {
+    props: {
+        attrNode: null,
+        comment: null
+    },
+    methods: {
+        isMatch: function () {
+            var match = true, vEle = this.attrNode.ownerVElement;
+
+            while (vEle.previousSibling != null && match){
+                var whenDir = vEle.previousSibling.searchDir('b-switch-when');
+
+                vEle = vEle.previousSibling;
+
+                if(!whenDir.length) {
+                    continue;
+                }
+
+                match = !whenDir[0].isMatch;
+            }
+
+            return match;
+        }
+    },
+    onCompile: function (attrNode, options) {
+        this.attrNode = attrNode;
+    },
+    onInsert: function (ele, binding) {
+        this.comment = document.createComment('b-switch-default');
+
+        if (!this.isMatch()) {
+            utils.replaceNode(ele, this.comment);
+        }
+    },
+    onDetect: function (ele, binding) {
+        if (this.isMatch()) {
+            if (ele.parentNode == null) {
+                utils.replaceNode(this.comment, ele);
+            }
+        }
+        else {
+            if (ele.parentNode != null) {
+                utils.replaceNode(ele, this.comment);
+            }
+        }
+    },
+    onDestroy: function () {
+        this.attrNode = null;
+        this.comment = null;
+    }
+});
+
+directive('b-switch-when', {
+    props: {
+        isMatch: false,
+        attrNode: null,
+        comment: null
+    },
+    methods: {
+        updateIsMatch: function (ele, binding) {
+            var vEle = this.attrNode.ownerVElement;
+            var switchDir = vEle.parentNode.searchDir('b-switch');
+
+            if(!switchDir.length){
+                throw new Error('Require b-switch directive');
+            }
+
+            this.isMatch = binding.compute() === switchDir[0].value;
+        }
+    },
+    onCompile: function (attrNode, options) {
+        this.attrNode = attrNode;
+    },
+    onInsert: function (ele, binding) {
+        this.comment = document.createComment('b-switch-when');
+        this.updateIsMatch(ele, binding);
+
+        if (!this.isMatch) {
+            utils.replaceNode(ele, this.comment);
+        }
+    },
+    onDetect: function (ele, binding) {
+        this.updateIsMatch(ele, binding);
+
+        if (this.isMatch) {
+            if (ele.parentNode == null) {
+                utils.replaceNode(this.comment, ele);
+            }
+        }
+        else {
+            if (ele.parentNode != null) {
+                utils.replaceNode(ele, this.comment);
+            }
+        }
+    },
+    onDestroy: function () {
+        this.attrNode = null;
+        this.comment = null;
     }
 });
 
@@ -40,41 +197,36 @@ directive('b-bind', function(ele, binding){
     ele.innerText = binding.compute();
 });
 
-directive('b-attr', function (ele, binding) {
-    var attr = binding.compute();
-    if (attr) {
-        ele.setAttribute(attr, '');
-    }
-    else {
-        ele.removeAttribute(attr);
-    }
-});
-
 directive('b-model', {
-    onInsert: function (ele, binding, com) {
-        this.$update(ele, com);
-
-        if(com == null){
-           ele.addEventListener('change', function(e){
-                utils.setProperty(binding.scope, binding.text, e.target.value);
-           });
+    methods: {
+        update: function (ele, binding, com) {
+            if (com == null) {
+                ele.value = binding.compute();
+            }
+            else {
+                com.value = binding.compute();
+            }
         }
-        else{
-            if(utils.isMessenger(com.change)){
-                com.change.on(function(e, args){
+    },
+    onInsert: function (ele, binding, com) {
+        this.update(ele, binding, com);
+
+        if (com == null) {
+            ele.addEventListener('change', function (e) {
+                utils.setProperty(binding.scope, binding.text, e.target.value);
+            });
+        }
+        else {
+            if (utils.isMessenger(com.change)) {
+                com.change.on(function (e, args) {
                     utils.setProperty(binding.scope, binding.text, args.newvalue);
                 });
             }
             throw new Error('Compoent ' + com.$key + 'must define [change] event');
         }
     },
-    onUpdate:function(ele, binding, com) {
-        if (com == null) {
-            ele.value = binding.compute();
-        }
-        else {
-            com.value = binding.compute();
-        }
+    onUpdate: function (ele, binding, com) {
+        this.update(ele, binding, com);
     }
 });
 
@@ -141,18 +293,12 @@ directive('b-repeat', {
         };
 
         function hasChange(newArr, oldArr) {
-            if (newArr.length !== oldArr.length) {
-                return true;
-            }
-
-            return newArr.some(function (item, index) {
-                item !== oldArr[index];
-            });
+            return !utils.isSame(newArr, oldArr);
         }
 
         function setCurrentItems(value) {
             if (utils.isArray(value)) {
-                currentItems = value.slice(0);
+                currentItems = utils.copy(value);
             }
             else {
                 currentItems = [];
@@ -178,7 +324,7 @@ directive('b-repeat', {
                 fragment.appendChild(element);
             });
 
-            utils.removeBetween(start, end);
+            utils.removeNodeBetween(start, end);
             end.parentNode.insertBefore(fragment, end);
         }
     }

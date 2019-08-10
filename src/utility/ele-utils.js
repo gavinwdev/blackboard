@@ -1,39 +1,44 @@
-function empty(ele) {
-    Array.prototype.slice.call(ele.childNodes, 0).forEach(function (child) {
-        ele.removeChild(child);
+
+function getChildNodes(node) {
+    return Array.prototype.slice.call(node.childNodes, 0);
+}
+
+function clearChildNodes(node) {
+    getChildNodes(node).forEach(function (child) {
+        node.removeChild(child);
     });
 }
 
-function replace(refEle, newEle) {
-    var parentNode = refEle.parentNode;
+function replaceNode(refNode, newNode) {
+    var parentNode = refNode.parentNode;
     if (parentNode != null) {
-        parentNode.insertBefore(newEle, refEle);
-        parentNode.removeChild(refEle);
+        parentNode.insertBefore(newNode, refNode);
+        parentNode.removeChild(refNode);
     }
 }
 
-function remove(ele) {
-    var parentNode = ele.parentNode;
+function removeNode(node) {
+    var parentNode = node.parentNode;
     if (parentNode != null) {
-        parentNode.removeChild(ele);
+        parentNode.removeChild(node);
     }
 }
 
-function removeBetween(ele1, ele2) {
-    var parentNode = ele1.parentNode;
-    var childNodes = toArray(parentNode.childNodes);
+function removeNodeBetween(beginNode, endNode) {
+    var parentNode = beginNode.parentNode;
+    var childNodes = getChildNodes(parentNode);
 
     childNodes.forEach(function (child) {
-        if (child.previousSibling === ele1 && child !== ele2) {
+        if (child.previousSibling === beginNode && child !== endNode) {
             parentNode.removeChild(child);
         }
-        if (child.nextSibling === ele2 && child !== ele1) {
+        if (child.nextSibling === endNode && child !== beginNode) {
             parentNode.removeChild(child);
         }
     });
 }
 
-function insertAfter(newNode, refNode) {
+function insertNodeAfter(refNode, newNode) {
     var parentNode = refNode.parentNode;
 
     if (parentNode.lastChild === refNode) {
@@ -43,8 +48,4 @@ function insertAfter(newNode, refNode) {
     }
 }
 
-function toArray(childNodes) {
-    return Array.prototype.slice.call(childNodes, 0);
-}
-
-export { empty, replace, remove, insertAfter, removeBetween };
+export { clearChildNodes, replaceNode, removeNode, removeNodeBetween, insertNodeAfter };

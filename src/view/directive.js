@@ -45,6 +45,16 @@ Directive.prototype.$insert = function (ele, com) {
     }
 };
 
+Directive.prototype.$detect = function (ele, com) {
+    if (utils.isFunction(this.$def.onDetect)) {
+        return this.$def.onDetect.call(this, ele, this.$binding, com);
+    }
+
+    if (this.$binding.detect()) {
+        this.$update(ele, com);
+    }
+};
+
 Directive.prototype.$update = function (ele, com) {
     if (utils.isFunction(this.$def.onUpdate)) {
         this.$def.onUpdate.call(this, ele, this.$binding, com);

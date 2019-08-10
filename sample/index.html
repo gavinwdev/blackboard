@@ -8,7 +8,7 @@
 
 <body>
     <div id="app" data-id="app2">
-        <div class="flex-row" style="height: 600px;">
+        <div class="flex-row" *b-style="{ height: '600px' }">
             <div class="flex-element flex-column">
                     <div class="flex-element border" *b-bind="content" style="flex:2;"></div>
                     <textarea *b-model="content" style="flex:1;"></textarea>
@@ -17,13 +17,19 @@
             <div class="flex-element padding">
                 <label>Font Size: </label>
                 <select>
-                    <option *b-repeat="item in fontSizes" :value="item.value" *b-bind="item.value" *b-attr="item.selected?'selected':''"></option>
+                    <option *b-repeat="item in fontSizes" :value="item.value" *b-bind="item.value" *b-selected="item.selected"></option>
                 </select>
                 <button @click="onClick()">New</button>
 
                 <test-embed *b-repeat="item in fontSizes">
                     <span *b-bind="name"></span>
                 </test-embed>
+
+                <div *b-switch="num">
+                    <div *b-switch-when="1">this is 1</div>
+                    <div *b-switch-when="2">this is 2</div>
+                    <div *b-switch-default="2">this is default</div>
+                </div>
             </div>
         </div>
     </div>
