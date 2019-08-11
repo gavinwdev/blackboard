@@ -100,7 +100,7 @@ window.onload = function(){
 
 # document
 ## compoent
-The code below shows how to identify a component and explain its configuration, the properties, events and methods would be members of component instance, you can access it with "this" pointer in methods and lfecycle callbacks
+component encapsulates UI control and extends HTML tag to represent application component, the code below shows how to identify a component and explain its configuration, the properties, events and methods would be members of component instance, you can access it with "this" pointer in methods and lfecycle callbacks
 ```
 // suppose to create a component named 'note'
 blackboard.component('note, {
@@ -149,8 +149,28 @@ blackboard.component('note, {
 
     },
     onDestroyed: function(){
-        
+
     }
     // end of lifecycle callbacks
 });
 ```
+
+use it in the template
+```
+<note content="this is content"></note>
+```
+
+## directive
+directive encapsulates view logic to operate virtual node or HTML DOM element
+```
+// suppose to create a directive
+blackboard.directive('' , {
+
+});
+```
+
+## filter
+The pipeline from model to view
+
+## service
+Business service, can be injected to component or directive
