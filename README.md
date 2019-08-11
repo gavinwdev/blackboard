@@ -99,34 +99,46 @@ window.onload = function(){
 ```
 
 # document
-## compoent
-component encapsulates UI control and extends HTML tag to represent application component, the code below shows how to identify a component and explain its configuration, the properties, events and methods would be members of component instance, you can access it with "this" pointer in methods and lfecycle callbacks
+## common
+The following configuration is common for component, directive, service and filter. blackboard would create certain constructor function according to configuration. The member of inject, props, events and methods would beccome members of respective instance, you can access it with "this" pointer in instance methods.
 ```
-// suppose to create a component named 'note'
-blackboard.component('note, {
+    // extends parent class, fill in parent name here
+    extends: '',
+
+    // service injection
+    inject: {
+        [propName]: [serviceName]
+    },
+
+    // 
+    props: {
+        [propName]: [serviceName]
+    },
+    events: [
+        'eventName'
+    ],
+    methods: {
+        [methodName]: [methodFunction]
+    }
+
+```
+
+## compoent
+component encapsulates UI control and extends HTML tag to represent application component, the code below shows how to identify a component and explain its configuration.
+#### configuration
+```
+{
     // template
     template: '',
     templateId: '',
     templateUrl: ''
     // the priority is from high to low
 
-    // property
     props: {
-        content: ''
-    },
-    // properties defined here are reactive, the view would be updated while its value is modified
-
-    // event names, blackboard would create respective events
-    events: ['contentChanged'],
-
-    // method
-    methods: {
-        changeContent: function(){
-
-        }
+        // properties defined here are reactive, the view would be updated while value is modified
     },
 
-    // lifiecycle callbacks
+    // lifecycle hooks
     onCreating: function(){
 
     },
@@ -152,25 +164,87 @@ blackboard.component('note, {
 
     }
     // end of lifecycle callbacks
+}
+```
+
+#### sample
+```
+// suppose to create a component named 'note'
+blackboard.component('note, {
+    template: '<div *b-bind="content"></div>',
+    props: {
+        content: ''
+    },
+    events: ['contentChanged']
 });
 ```
 
 use it in the template
 ```
-<note content="this is content"></note>
+<note content="this is content" @contentChanged="onContentChanged()"></note>
 ```
 
 ## directive
-directive encapsulates view logic to operate virtual node or HTML DOM element
+directive encapsulates view logic about operating virtual node or HTML DOM element
+#### configuration
 ```
-// suppose to create a directive
-blackboard.directive('' , {
+{
+    // identify directive outputs value, most of directives input value.
+    output: false,
 
+    // lifecycle hooks
+    onCreating: function(ele, binding, component){
+        
+    },
+    onCreated: function(ele, binding, component){
+        
+    },
+    onCompile: function(ele, binding, component){
+        
+    },
+    onInsert: function(ele, binding, component){
+        
+    },
+    onUpdate: function(ele, binding, component){
+        
+    },
+    onDetect: function(ele, binding, component){
+        
+    },
+    onDestroy: function(ele, binding, component){
+        
+    }
+    // end of lifecycle hooks
+}
+```
+
+#### sample
+```
+// suppose to create a directive to set inner text
+blackboard.directive('bind-text' , {
+    onInsert: function(ele, binding, component){
+        ele.innerText = binding.compute();
+    },
+    onUpdate: function(ele, binding, component){
+        ele.innerText = binding.compute();
+    }
 });
 ```
 
-## filter
-The pipeline from model to view
+get input value
+```
+binding.compute();
+```
+
+shortening
+```
+blackboard.directive('bind-text' ,function(ele, binding){
+    ele.innerText = binding.compute();
+});
+```
 
 ## service
 Business service, can be injected to component or directive
+
+## filter
+The pipeline from model to view
