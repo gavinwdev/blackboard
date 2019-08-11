@@ -99,7 +99,58 @@ window.onload = function(){
 ```
 
 # document
-<a href="*" target="_blank">Component</a>
-<a href="*" target="_blank">Directive</a>
-<a href="*" target="_blank">Filter</a>
-<a href="*" target="_blank">Service</a>
+## compoent
+The code below shows how to identify a component and explain its configuration, the properties, events and methods would be members of component instance, you can access it with "this" pointer in methods and lfecycle callbacks
+```
+// suppose to create a component named 'note'
+blackboard.component('note, {
+    // template
+    template: '',
+    templateId: '',
+    templateUrl: ''
+    // the priority is from high to low
+
+    // property
+    props: {
+        content: ''
+    },
+    // properties defined here are reactive, the view would be updated while its value is modified
+
+    // event names, blackboard would create respective events
+    events: ['contentChanged'],
+
+    // method
+    methods: {
+        changeContent: function(){
+
+        }
+    },
+
+    // lifiecycle callbacks
+    onCreating: function(){
+
+    },
+    onCreated: function(){
+
+    },
+    onUpdating: function(){
+
+    },
+    onUpdated: function(){
+
+    },
+    onMounting: function(){
+
+    },
+    onMounted: function(){
+
+    },
+    onDestroying: function(){
+
+    },
+    onDestroyed: function(){
+        
+    }
+    // end of lifecycle callbacks
+});
+```
