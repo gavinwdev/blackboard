@@ -16,7 +16,9 @@ function extendAndWatchProps(instance, props) {
                     instance[prefix + key] = convertValue(newValue, onchange);
                     onchange();
                 }
-            }
+            },
+            enumerable: true,
+            configurable: true
         });
     });
 
@@ -25,13 +27,7 @@ function extendAndWatchProps(instance, props) {
     }
 }
 
-var rxFlag = 'reactive';
-
 function watchProps(obj, onchange) {
-    if (obj[prefix + rxFlag]) {
-        return;
-    }
-
     utils.forEach(obj, function (key, value) {
         if (key.startsWith(prefix)) {
             return;
@@ -48,11 +44,11 @@ function watchProps(obj, onchange) {
                     obj[prefix + key] = convertValue(newValue, onchange);
                     onchange.call(this, key);
                 }
-            }
+            },
+            enumerable: true,
+            configurable: true
         });
     });
-
-    obj[prefix + rxFlag] = true;
 }
 
 function convertValue(value, onchange) {

@@ -31,7 +31,7 @@ function bootstrap(idOrElement, def) {
         element = idOrElement;
     }
 
-    def.template = element.outerHTML;
+    def.template = element.innerHTML;
     injector.createComponent(component(elementId, def)).$mount(idOrElement);
 }
 
@@ -55,7 +55,7 @@ function compile(html, options) {
     });
 
     astNodes.forEach(function (astNode) {
-        astNode.getDir().forEach(function (directive) {
+        astNode.directives().forEach(function (directive) {
             directive.$compile(settings);
         });
     });

@@ -102,7 +102,7 @@ directive('b-switch-default', {
             var match = true, vEle = this.attrNode.ownerVElement;
 
             while (vEle.previousSibling != null && match){
-                var whenDir = vEle.previousSibling.searchDir('b-switch-when');
+                var whenDir = vEle.previousSibling.getDirective('b-switch-when');
 
                 vEle = vEle.previousSibling;
 
@@ -153,7 +153,7 @@ directive('b-switch-when', {
     methods: {
         updateIsMatch: function (ele, binding) {
             var vEle = this.attrNode.ownerVElement;
-            var switchDir = vEle.parentNode.searchDir('b-switch');
+            var switchDir = vEle.parentNode.getDirective('b-switch');
 
             if(!switchDir.length){
                 throw new Error('Require b-switch directive');

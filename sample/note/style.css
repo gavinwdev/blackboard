@@ -1,10 +1,12 @@
-.flex-column{
+.flex-box{
     display: flex;
+}
+
+.flex-column{
     flex-direction: column;
 }
 
 .flex-row{
-    display: flex;
     flex-direction: row;
 }
 
@@ -13,7 +15,7 @@
 }
 
 .border{
-    border: solid 1px black;
+    border: solid 1px silver;
 }
 
 .margin{
@@ -22,4 +24,34 @@
 
 .padding {
     padding: 4px;
+}
+
+.full-size{
+    width: 100%;
+    height: 100%;
+}
+
+.note{
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    border: solid 1px silver;
+    background-color: lightyellow;
+    font-size: 14px;
+}
+
+.note-tlb{
+    height: 10px;
+}
+
+.note-content{
+    resize: none;
+    border: none;
+    overflow: hidden;
+    background: transparent;
+    padding: 4px;
+}
+
+.note-content:focus{
+    outline: none;
 }

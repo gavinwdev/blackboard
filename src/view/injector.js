@@ -14,6 +14,7 @@ function Injector() {
     this.container = {};
     this.waitingToExtends = {};
     this.insContainer = {};
+    this.onConflict = new Messenger();
 }
 
 Injector.prototype.getMapping = function (contractType) {
@@ -34,7 +35,18 @@ Injector.prototype.register = function (contractType, contractName, constructor)
     var mapping = this.getMapping(contractType);
 
     if (mapping[contractName] != null) {
-        throw new Error(contractType + ' ' + contractName + ' is already existed');
+        var arg = {
+            type: contractType,
+            key: contractName,
+            newKey: ''
+        };
+        this.onConflict(arg);
+        if (!arg.newKey) {
+            throw new Error(contractType + ' ' + contractName + ' is already existed');
+        }
+        if (mapping[arg.newKey] != null) {
+            throw new Error(contractType + ' ' + arg.newKey + ' is already existed');
+        }
     }
 
     mapping[contractName] = constructor;
@@ -171,6 +183,10 @@ Injector.prototype.createService = function (constructor) {
     return instance;
 };
 
+Injector.prototype.service = function (contractName) {
+    return this.createService(contractName);
+};
+
 Injector.prototype.getWaitingToExtends = function (contractType) {
     if (!this.waitingToExtends[contractType]) {
         this.waitingToExtends[contractType] = [];
@@ -196,7 +212,7 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
                 constructor.super.call(this);
             }
             if (utils.isObject(this.$def.props)) {
-                utils.extend(this, this.$def.props);
+                utils.extend(true, this, utils.copy(true, this.$def.props));
             }
             if (utils.isArray(this.$def.events)) {
                 this.$def.events.forEach(function (e) {

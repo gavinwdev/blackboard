@@ -18,7 +18,7 @@ function component(name, def) {
                 constructor.super.call(this);
                 // create properties
                 if (utils.isObject(this.$def.props)) {
-                    extendAndWatchProps(self, this.$def.props);
+                    extendAndWatchProps(self, utils.copy(true, this.$def.props));
                 }
                 if (utils.isArray(this.$def.events)) {
                     this.$def.events.forEach(function (e) {
@@ -80,4 +80,8 @@ function isService(obj) {
     return obj instanceof Service;
 }
 
-export { injector, component, directive, filter, service, isComponent, isDirective, isFilter, isService };
+function conflict(fn) {
+    injector.onConflict.register(fn);
+}
+
+export { injector, component, directive, filter, service, isComponent, isDirective, isFilter, isService, conflict };

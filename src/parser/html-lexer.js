@@ -14,7 +14,7 @@ HtmlLexer.prototype.isValidIdentifierStart = function (ch) {
 };
 
 HtmlLexer.prototype.isValidIdentifierContinue = function (ch, cp) {
-    return this.isValidIdentifierStart(ch, cp) || this.isNumber(ch) || ch === '-';
+    return this.isValidIdentifierStart(ch, cp) || this.isNumber(ch) || ch === '-' || ch === '.';
 };
 
 HtmlLexer.prototype.expectString = function (str) {

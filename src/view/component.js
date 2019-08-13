@@ -3,7 +3,6 @@ import * as utils from '../utility/utils';
 import * as eleUtils from '../utility/ele-utils';
 import { injector } from './injector';
 import {compile} from '../parser';
-import axios from 'axios';
 
 export default function Component() {
     this.$astNodes = [];
@@ -20,19 +19,9 @@ Component.prototype.$getTemplate = function () {
         if (utils.isString(self.$def.template)) {
             resolve(self.$def.template);
         }
-        else if (utils.isString(self.$def.templateId)) {
-            var tpl = document.getElementById(self.$def.templateId);
-
-            if (tpl == null) {
-                resolve('');
-            }
-            else {
-                resolve(tpl.innerText);
-            }
-        }
         else if (utils.isString(self.$def.templateUrl)) {
-            axios.get(self.$def.templateUrl).then(function (res) {
-                resolve(res.data);
+            injector.service('$templateCache').getTplByUrl(self.$def.templateUrl).then(function (tpl) {
+                resolve(tpl);
             });
         }
         else {

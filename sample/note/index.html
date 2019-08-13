@@ -2,38 +2,22 @@
 <html>
 
 <head>
-    <title>Getting Started</title>
+    <title>Backup Note</title>
     <link rel="stylesheet" type="text/css" href="./style.css" />
 </head>
 
 <body>
-    <div id="app" data-id="app2">
-        <div class="flex-row" *b-style="{ height: '600px' }">
-            <div class="flex-element flex-column">
-                    <div class="flex-element border" *b-bind="content" style="flex:2;"></div>
-                    <textarea *b-model="content" style="flex:1;"></textarea>
-            </div>
-            
-            <div class="flex-element padding">
-                <label>Font Size: </label>
-                <select>
-                    <option *b-repeat="item in fontSizes" :value="item.value" *b-bind="item.value" *b-selected="item.selected"></option>
-                </select>
-                <button @click="onClick()">New</button>
+    <div id="app" class="full-size flex-box flex-column border">
+        <div class="toolbar" style="height: 40px;background-color: silver;">
+            <button @click="createNote()">New</button>
+        </div>
 
-                <test-embed *b-repeat="item in fontSizes">
-                    <span *b-bind="name"></span>
-                </test-embed>
-
-                <div *b-switch="num">
-                    <div *b-switch-when="1">this is 1</div>
-                    <div *b-switch-when="2">this is 2</div>
-                    <div *b-switch-default="2">this is default</div>
-                </div>
-            </div>
+        <div class="flex-element" style="position: relative;">
+            <note :model="note" *b-repeat="note in notes"></note>
         </div>
     </div>
     <script src="../lib/axios.js"></script>
+    <script src="../lib/hammer.js"></script>
     <script src="../../dist/blackboard.js"></script>
     <script src="./index.js"></script>
 </body>

@@ -2,7 +2,7 @@ var debugMode = true,
     toString = Object.prototype.toString,
     getPrototypeOf = Object.getPrototypeOf;
 
-function forEach(obj, action) {
+function forEach(obj, action, ignoreOwn) {
     if (isArray(obj)) {
         for (var index = 0; index < obj.length; index++) {
             if (action(index, obj[index])) {
@@ -12,7 +12,7 @@ function forEach(obj, action) {
     }
     else if (isObject(obj)) {
         for (var p in obj) {
-            if (obj.hasOwnProperty(p)) {
+            if (ignoreOwn || obj.hasOwnProperty(p)) {
                 if (action(p, obj[p])) {
                     return;
                 }
@@ -263,7 +263,7 @@ function hasProperty(obj, key, ignoreCase) {
                 target = value3;
             }
             return hasProp;
-        });
+        }, true);
     }
 
     return hasProp;
@@ -285,7 +285,7 @@ function getProperty(obj, key, ignoreCase) {
                 target = value3;
             }
             return hasProp;
-        });
+        }, true);
     }
 
     return hasProp ? target : null;
@@ -311,7 +311,7 @@ function setProperty(obj, key, value, ignoreCase) {
                     target = value3;
                 }
                 return hasProp;
-            });
+            }, true);
         }
     }
 

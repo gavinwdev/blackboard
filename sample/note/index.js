@@ -10,33 +10,53 @@
         }
     });
 
+    blackboard.directive('note-pan', function (ele, binding) {
+        var scope = binding.scope;
+        var hammerTime = new Hammer(ele);
+
+        var x, y;
+        hammerTime.on('panstart', function () {
+            x = scope.model.position.x;
+            y = scope.model.position.y;
+        });
+
+        hammerTime.on('panmove', function (ev) {
+            scope.model.position.x = x + ev.deltaX;
+            scope.model.position.y = y + ev.deltaY;
+        });
+    });
+
+    blackboard.component('note', {
+        templateUrl: './note.html',
+        props: {
+            model: {
+                content: 'this is content',
+                position: {
+                    x: 20,
+                    y: 20
+                }
+            }
+        }
+    });
+
     global.onload = function () {
         var scope = {
             props: {
-                content: 'Hello Blackboard!',
-                fontSizes: [],
-                num: 2
+                notes: []
             },
             methods: {
-                onClick: function () {
-                    this.fontSizes.push({
-                        value: 'new',
-                        selected: false
+                createNote: function () {
+                    this.notes.push({
+                        content: 'new note',
+                        position: {
+                            x: 20,
+                            y: 20
+                        }
                     });
-
-                    this.num = 1;
                 }
             },
             onCreated: function () {
-                var count = 0;
 
-                while(count < 100) {
-                    this.fontSizes.push({
-                        value: count,
-                        selected: count === 10
-                    });
-                    count++;
-                }
             }
         };
 

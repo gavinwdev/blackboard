@@ -254,17 +254,17 @@ VNode.prototype.compile = function () {
     });
 };
 
-VNode.prototype.getDir = function () {
+VNode.prototype.directives = function () {
     var result = [];
     this.childNodes.map(function (child) {
-        return child.getDir();
+        return child.directives();
     }).forEach(function (item) {
         result = result.concat(item);
     });
     return result;
 };
 
-VNode.prototype.searchDir = function () {
+VNode.prototype.getDirective = function () {
     return [];
 };
 
@@ -438,18 +438,18 @@ ElementNode.prototype.compile = function () {
     }
 };
 
-ElementNode.prototype.getDir = function () {
+ElementNode.prototype.directives = function () {
     var result = [];
 
     this.attributes.map(function (attr) {
-        return attr.getDir();
+        return attr.directives();
     }).forEach(function (item) {
         result = result.concat(item);
     });
 
     if(this.component == null){
         this.childNodes.map(function (child) {
-            return child.getDir();
+            return child.directives();
         }).forEach(function (item) {
             result = result.concat(item);
         });
@@ -458,17 +458,17 @@ ElementNode.prototype.getDir = function () {
     return result;
 };
 
-ElementNode.prototype.searchDir = function (selector) {
+ElementNode.prototype.getDirective = function (key) {
     var result = [];
 
     this.attributes.map(function (attr) {
-        return attr.getDir();
+        return attr.directives();
     }).forEach(function (item) {
         result = result.concat(item);
     });
 
     return result.filter(function (item) {
-        return item.$key === selector;
+        return item.$key === key;
     });
 };
 
@@ -673,7 +673,12 @@ AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
             ownerComponent.$setAttr(this.nodeName, this.binding.compute());
         }
         else {
-            this.ownerElement.setAttribute(this.nodeName, this.binding.compute());
+            if (this.nodeName.startsWith('style')) {
+                utils.setProperty(this.ownerElement, this.nodeName, this.binding.compute());
+            }
+            else {
+                this.ownerElement.setAttribute(this.nodeName, this.binding.compute());
+            }
         }
     }
 };
@@ -699,9 +704,15 @@ AttrNode.prototype.update = function () {
     }
     else {
         var newValue = this.binding.compute();
-        this.ownerElement.setAttribute(this.nodeName, newValue);
-        if (this.ownerElement.nodeName === 'INPUT' && this.nodeName === 'value') {
-            this.ownerElement.value = newValue;
+
+        if (this.nodeName.startsWith('style')) {
+            utils.setProperty(this.ownerElement, this.nodeName, newValue);
+        }
+        else {
+            this.ownerElement.setAttribute(this.nodeName, newValue);
+            if (this.ownerElement.nodeName === 'INPUT' && this.nodeName === 'value') {
+                this.ownerElement.value = newValue;
+            }
         }
     }
 };
@@ -712,7 +723,7 @@ AttrNode.prototype.afterLink = function () {
     }
 };
 
-AttrNode.prototype.getDir = function () {
+AttrNode.prototype.directives = function () {
     return this.directive == null ? [] : [this.directive];
 };
 
@@ -814,16 +825,19 @@ function DocumentFragmentNode() {
 function ExpNode(text) {
     this.text = text;
     this.value = null;
+    this.copy = null;
+    this.oldCopy = null;
 }
 
 ExpNode.prototype.compute = function (scope, options) {
     this.value = compute(this.text, scope, options);
+    this.oldCopy = this.copy;
+    this.copy = utils.copy(this.value);
 };
 
 ExpNode.prototype.detect = function (scope, options) {
-    var oldValue = this.value;
     this.compute(scope, options);
-    return !utils.isSame(this.value, oldValue);
+    return !utils.isSame(this.value, this.oldCopy);
 };
 
 function Binding() {
