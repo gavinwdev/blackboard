@@ -31,10 +31,12 @@
     height: 100%;
 }
 
+.relative-container{
+    position: relative;
+}
+
 .note{
     position: absolute;
-    width: 180px;
-    height: 180px;
     border: solid 1px silver;
     background-color: lightyellow;
     font-size: 14px;
@@ -54,4 +56,14 @@
 
 .note-content:focus{
     outline: none;
+}
+
+.note-resize{
+    width: 10px;
+    height: 10px;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    background-color: red;
+    cursor: se-resize;
 }

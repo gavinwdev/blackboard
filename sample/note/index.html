@@ -12,7 +12,7 @@
             <button @click="createNote()">New</button>
         </div>
 
-        <div class="flex-element" style="position: relative;">
+        <div class="flex-element relative-container">
             <note :model="note" *b-repeat="note in notes"></note>
         </div>
     </div>

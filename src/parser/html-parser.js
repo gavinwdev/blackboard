@@ -648,7 +648,8 @@ AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
                 self.binding.compute({
                     locals: {
                         $event: e,
-                        $args: null
+                        $args: null,
+                        $element: self.ownerElement
                     }
                 });
             });
@@ -658,7 +659,8 @@ AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
                 self.binding.compute({
                     locals: {
                         $event: e,
-                        $args: args
+                        $args: args,
+                        $element: self.ownerElement
                     }
                 });
             });
