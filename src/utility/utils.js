@@ -320,6 +320,51 @@ function setProperty(obj, key, value, ignoreCase) {
     }
 }
 
+var dirty = '$$dirty';
+
+function setDirty(obj) {
+    if(isObject(obj) || isArray(obj)){
+        obj[dirty] = true;
+    }
+}
+
+function resetDirty(obj) {
+    if (isObject(obj) || isArray(obj)) {
+        obj[dirty] = null;
+
+        forEach(obj, function (key, value) {
+            resetDirty(value);
+        });
+    }
+}
+
+function isDirty(obj) {
+    if (isObject(obj) || isArray(obj)) {
+        if (obj[dirty] === true) {
+            return true;
+        }
+        else {
+            return some(obj, function (key, value) {
+                return isDirty(value);
+            });
+        }
+    }
+    return false;
+}
+
+function hasChange(newValue, oldValue) {
+    var dirty = false;
+
+    if (newValue === oldValue) {
+        dirty = isDirty(newValue);
+    }
+    else {
+        dirty = !isSame(newValue, oldValue);
+    }
+
+    return dirty;
+}
+
 export {
     forEach,
     some,
@@ -347,5 +392,9 @@ export {
     containsStr,
     hasProperty,
     getProperty,
-    setProperty
+    setProperty,
+    setDirty,
+    resetDirty,
+    isDirty,
+    hasChange
 };

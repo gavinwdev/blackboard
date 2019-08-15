@@ -827,19 +827,17 @@ function DocumentFragmentNode() {
 function ExpNode(text) {
     this.text = text;
     this.value = null;
-    this.copy = null;
-    this.oldCopy = null;
+    this.oldValue = null;
 }
 
 ExpNode.prototype.compute = function (scope, options) {
+    this.oldValue = this.value;
     this.value = compute(this.text, scope, options);
-    this.oldCopy = this.copy;
-    this.copy = utils.copy(this.value);
 };
 
 ExpNode.prototype.detect = function (scope, options) {
     this.compute(scope, options);
-    return !utils.isSame(this.value, this.oldCopy);
+    return utils.hasChange(this.value, this.oldValue);
 };
 
 function Binding() {

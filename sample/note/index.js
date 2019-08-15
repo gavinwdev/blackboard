@@ -116,8 +116,8 @@
             methods: {
                 createNote: function () {
                     this.noteService.create();
-                    this.notes = this.noteService.getList();
-                    this.$detect();
+                    // this.notes = this.noteService.getList();
+                    // this.$detect();
                 }
             },
             onCreated: function () {

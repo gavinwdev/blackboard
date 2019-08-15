@@ -5,16 +5,18 @@ var prefix = '$$';
 
 function extendAndWatchProps(instance, props) {
     utils.forEach(props, function (key, value) {
-        instance[prefix + key] = convertValue(value, onchange);
+        instance[prefix + key] = watchValue(value, onchange, onvalidate);
 
         Object.defineProperty(instance, key, {
             get: function () {
                 return instance[prefix + key];
             },
             set: function (newValue) {
-                if (instance[prefix + key] !== newValue) {
-                    instance[prefix + key] = convertValue(newValue, onchange);
-                    onchange();
+                var oldValue = instance[prefix + key];
+                if (oldValue !== newValue && onvalidate.call(this, instance, key, newValue, oldValue)) {
+                    instance[prefix + key] = watchValue(newValue, onchange, onvalidate, (key + '.'));
+                    utils.setDirty(instance);
+                    onchange.call(this, instance, key, newValue, oldValue);
                 }
             },
             enumerable: true,
@@ -22,27 +24,45 @@ function extendAndWatchProps(instance, props) {
         });
     });
 
-    function onchange() {
+    function onchange(obj, propkey, newValue, oldValue, entirePropKey) {
         instance.$detect();
+    }
+
+    function onvalidate(obj, propkey, newValue, oldValue, entirePropKey) {
+        return true;
     }
 }
 
-function watchProps(obj, onchange) {
+function watchValue(value, onchange, onvalidate, propKey) {
+    if (utils.isArray(value)) {
+        watchArray(value, onchange, onvalidate, propKey);
+    }
+
+    if (utils.isObject(value)) {
+        watchProps(value, onchange, onvalidate, propKey);
+    }
+
+    return value;
+}
+
+function watchProps(obj, onchange, onvalidate, propKey) {
     utils.forEach(obj, function (key, value) {
         if (key.startsWith(prefix)) {
             return;
         }
 
-        obj[prefix + key] = convertValue(value, onchange);
+        obj[prefix + key] = watchValue(value, onchange, onvalidate, (propKey + key + '.'));
 
         Object.defineProperty(obj, key, {
             get: function () {
                 return obj[prefix + key];
             },
             set: function (newValue) {
-                if (obj[prefix + key] !== newValue) {
-                    obj[prefix + key] = convertValue(newValue, onchange);
-                    onchange.call(this, key);
+                var oldValue = obj[prefix + key];
+                if (oldValue !== newValue && onvalidate.call(this, obj, key, newValue, oldValue, propKey + key)) {
+                    obj[prefix + key] = watchValue(newValue, onchange, onvalidate, (propKey + key + '.'));
+                    utils.setDirty(obj);
+                    onchange.call(this, obj, key, newValue, oldValue, propKey + key);
                 }
             },
             enumerable: true,
@@ -51,59 +71,36 @@ function watchProps(obj, onchange) {
     });
 }
 
-function convertValue(value, onchange) {
-    if (utils.isArray(value)) {
-        var newValue = ReactiveArray.fromArray(value);
-        newValue.onchange.on(function () {
-            onchange.call(this);
-        });
-        return newValue;
-    }
+function watchArray(arr, onchange, onvalidate) {
+    Object.setPrototypeOf(arr, interceptArray(arr, onchange, onvalidate));
 
-    if (utils.isObject(value)) {
-        watchProps(value, onchange);
-    }
-
-    return value;
-}
-
-utils.inherit(ReactiveArray, Array);
-function ReactiveArray() {
-    ReactiveArray.super.apply(this, arguments);
-}
-
-ReactiveArray.fromArray = function (arr) {
-    var newArr = new ReactiveArray();
     arr.forEach(function (item) {
-        newArr.push(convertValue(item, function () {
-            newArr.onchange.fire();
-        }));
+        watchValue(item, onchange, onvalidate);
     });
-    newArr.onchange.fire();
-    return newArr;
-};
+}
 
-ReactiveArray.prototype.onchange = new Messenger();
+function interceptArray(arr, onchange, onvalidate) {
+    var proto = utils.object(Array.prototype),
+        proxyMethod = 'push pop shift unshift reverse sort splice',
+        proxyMethods = proxyMethod.split(' ');
 
-var proxyMethod = 'push pop shift unshift reverse sort splice',
-    proxyMethods = proxyMethod.split(' ');
+    proxyMethods.forEach(function (key) {
+        proto[key] = makeProxyMethod(key);
+    });
 
-proxyMethods.forEach(function (key) {
-    ReactiveArray.prototype[key] = makeProxyMethod(key);
-});
-
-function makeProxyMethod(name) {
-    return function () {
-        var self = this;
-        var args = Array.prototype.slice.call(arguments, 0).map(function (item) {
-            return convertValue(item, function () {
-                self.onchange.fire();
+    function makeProxyMethod(name) {
+        return function () {
+            var args = Array.prototype.slice.call(arguments, 0).map(function (item) {
+                return watchValue(item, onchange, onvalidate);
             });
-        });
-        var result = Array.prototype[name].apply(this, args);
-        this.onchange.fire();
-        return result;
+            var result = Array.prototype[name].apply(this, args);
+            utils.setDirty(arr);
+            onchange.call(this, arr, name, arr, arr);
+            return result;
+        };
     }
+
+    return proto;
 }
 
 export { extendAndWatchProps };

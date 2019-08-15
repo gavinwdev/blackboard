@@ -73,6 +73,7 @@ function compile(html, options) {
                 astNodes.forEach(function (astNode) {
                     astNode.detect();
                 });
+                utils.resetDirty(scope);
             };
 
             scope.$destroy = function () {

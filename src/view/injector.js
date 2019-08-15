@@ -14,7 +14,6 @@ function Injector() {
     this.container = {};
     this.waitingToExtends = {};
     this.insContainer = {};
-    this.onConflict = new Messenger();
 }
 
 Injector.prototype.getMapping = function (contractType) {
@@ -32,24 +31,26 @@ Injector.prototype.getInstances = function (contractType) {
 };
 
 Injector.prototype.register = function (contractType, contractName, constructor) {
+    if (contractName.indexOf('.') !== -1) {
+        throw new Error('Illegal character "."');
+    }
+
     var mapping = this.getMapping(contractType);
 
-    if (mapping[contractName] != null) {
-        var arg = {
-            type: contractType,
-            key: contractName,
-            newKey: ''
-        };
-        this.onConflict(arg);
-        if (!arg.newKey) {
-            throw new Error(contractType + ' ' + contractName + ' is already existed');
-        }
-        if (mapping[arg.newKey] != null) {
-            throw new Error(contractType + ' ' + arg.newKey + ' is already existed');
+    if (mapping[contractName] == null) {
+        mapping[contractName] = [];
+    }
+    else {
+        var matches = mapping[contractName].filter(function (item) {
+            return item.prototype.$def.namespace === constructor.prototype.$def.namespace;
+        });
+
+        if (matches.length > 0) {
+            throw new Error(contractName + ' is exist under namespace ' + matches[0].prototype.$def.namespace);
         }
     }
 
-    mapping[contractName] = constructor;
+    mapping[contractName].push(constructor);
 };
 
 Injector.prototype.registerComponent = function (contractName, constructor) {
@@ -61,13 +62,38 @@ Injector.prototype.registerDirective = function (contractName, constructor) {
 };
 
 Injector.prototype.contains = function (contractType, contractName, ignoreCase) {
-    var mapping = this.getMapping(contractType);
+    var constructors, mapping = this.getMapping(contractType);
+    var segments = contractName.split('.');
+    var namespace = '';
 
-    if (ignoreCase) {
-        return utils.hasProperty(mapping, contractName, ignoreCase);
+    if (segments.length > 1) {
+        contractName = segments.pop();
+        namespace = segments.join('.');
     }
 
-    return mapping[contractName] != null;
+    if (ignoreCase) {
+        constructors = utils.getProperty(mapping, contractName, true);
+    }
+    else {
+        constructors = mapping[contractName];
+    }
+
+    if (constructors == null) {
+        return false;
+    }
+
+    if (namespace && constructors.length > 0) {
+        constructors = constructors.filter(function (item) {
+            var def = item.prototype.$def;
+            return def.namespace && utils.lowercase(def.namespace) === utils.lowercase(namespace);
+        });
+
+        if (constructors.length === 0) {
+            return false;
+        }
+    }
+
+    return true;
 };
 
 Injector.prototype.containsComponent = function (contractName) {
@@ -79,20 +105,45 @@ Injector.prototype.containsDirective = function (contractName) {
 };
 
 Injector.prototype.get = function (contractType, contractName, ignoreCase) {
-    var constructor, mapping = this.getMapping(contractType);
+    var constructors, mapping = this.getMapping(contractType);
+    var segments = contractName.split('.');
+    var namespace = '';
+
+    if (segments.length > 1) {
+        contractName = segments.pop();
+        namespace = segments.join('.');
+    }
 
     if (ignoreCase) {
-        constructor = utils.getProperty(mapping, contractName, true);
+        constructors = utils.getProperty(mapping, contractName, true);
     }
     else {
-        constructor = mapping[contractName]
+        constructors = mapping[contractName];
     }
 
-    if (constructor == null) {
+    if (constructors == null) {
         throw new Error(contractType + ' ' + contractName + ' is not defined');
     }
 
-    return constructor;
+    if (namespace && constructors.length > 0) {
+        constructors = constructors.filter(function (item) {
+            var def = item.prototype.$def;
+            return def.namespace && utils.lowercase(def.namespace) === utils.lowercase(namespace);
+        });
+
+        if (constructors.length === 0) {
+            throw new Error(contractName + ' is not exist under namespace ' + namespace);
+        }
+    }
+
+    if (constructors.length > 1) {
+        var namespaces = constructors.map(function (item) {
+            return item.prototype.$def.namespace;
+        });
+        throw new Error('namespace ' + namespaces.join('|') + ' all have ' + contractName);
+    }
+
+    return constructors[0];
 };
 
 Injector.prototype.getComponent = function (contractName) {

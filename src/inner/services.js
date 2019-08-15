@@ -1,7 +1,9 @@
-import { service } from '../view';
+import { service, namespace } from '../view';
 import axios from 'axios';
 
-service('$templateCache', {
+var spaceName = 'blackboard';
+
+namespace(spaceName).service('$templateCache', {
     props: {
         tplCache: {},
         promiseCache: {}

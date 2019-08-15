@@ -1,6 +1,8 @@
-import { directive } from '../view';
+import { directive, namespace } from '../view';
 import {compute , compile} from '../parser';
 import * as utils from '../utility';
+
+var spaceName = 'blackboard';
 
 function makeAttrSetter(attrName) {
     return function (ele, binding) {
@@ -17,15 +19,15 @@ function makeAttrSetter(attrName) {
     };
 }
 
-directive('b-selected', makeAttrSetter('selected'));
+namespace(spaceName).directive('b-selected', makeAttrSetter('selected'));
 
-directive('b-disabled', makeAttrSetter('disabled'));
+namespace(spaceName).directive('b-disabled', makeAttrSetter('disabled'));
 
-directive('b-checked', makeAttrSetter('checked'));
+namespace(spaceName).directive('b-checked', makeAttrSetter('checked'));
 
-directive('b-readonly', makeAttrSetter('readonly'));
+namespace(spaceName).directive('b-readonly', makeAttrSetter('readonly'));
 
-directive('b-style', function (ele, binding) {
+namespace(spaceName).directive('b-style', function (ele, binding) {
     var value = binding.compute();
 
     if (!value) {
@@ -45,15 +47,15 @@ directive('b-style', function (ele, binding) {
     }
 });
 
-directive('b-show', function (ele, binding) {
+namespace(spaceName).directive('b-show', function (ele, binding) {
     ele.style.display = binding.compute() ? 'initial' : 'none';
 });
 
-directive('b-hide', function (el, binding) {
+namespace(spaceName).directive('b-hide', function (el, binding) {
     el.style.display = binding.compute() ? 'none' : 'initial';
 });
 
-directive('b-if', {
+namespace(spaceName).directive('b-if', {
     props: {
         comment: null
     },
@@ -80,7 +82,7 @@ directive('b-if', {
     }
 });
 
-directive('b-switch', {
+namespace(spaceName).directive('b-switch', {
     props: {
         value: null
     },
@@ -92,7 +94,7 @@ directive('b-switch', {
     }
 });
 
-directive('b-switch-default', {
+namespace(spaceName).directive('b-switch-default', {
     props: {
         attrNode: null,
         comment: null
@@ -144,7 +146,7 @@ directive('b-switch-default', {
     }
 });
 
-directive('b-switch-when', {
+namespace(spaceName).directive('b-switch-when', {
     props: {
         isMatch: false,
         attrNode: null,
@@ -193,11 +195,11 @@ directive('b-switch-when', {
     }
 });
 
-directive('b-bind', function(ele, binding){
+namespace(spaceName).directive('b-bind', function(ele, binding){
     ele.innerText = binding.compute();
 });
 
-directive('b-model', {
+namespace(spaceName).directive('b-model', {
     methods: {
         update: function (ele, binding, com) {
             if (com == null) {
@@ -230,7 +232,7 @@ directive('b-model', {
     }
 });
 
-directive('b-repeat', {
+namespace(spaceName).directive('b-repeat', {
     onCompile: function (attrNode, options) {
         var arg = attrNode.nodeValue;
         var eleNode = attrNode.ownerVElement;
@@ -268,7 +270,7 @@ directive('b-repeat', {
         custom.onDetect = function () {
             var items = compute(itemsExp, currentScope);
 
-            if (hasChange(currentItems, items)) {
+            if (utils.hasChange(items, currentItems)) {
                 setCurrentItems(items);
                 build(currentItems);
             }
@@ -292,13 +294,9 @@ directive('b-repeat', {
             custom = null;
         };
 
-        function hasChange(newArr, oldArr) {
-            return !utils.isSame(newArr, oldArr);
-        }
-
         function setCurrentItems(value) {
             if (utils.isArray(value)) {
-                currentItems = utils.copy(value);
+                currentItems = value;
             }
             else {
                 currentItems = [];
@@ -330,7 +328,7 @@ directive('b-repeat', {
     }
 });
 
-directive('b-embed', {
+namespace(spaceName).directive('b-embed', {
     onCompile: function (attrNode, options) {
         var embedTpl = options.getEmbedTpl();
         if(embedTpl){
