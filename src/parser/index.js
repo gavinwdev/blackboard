@@ -63,17 +63,16 @@ function compile(html, options) {
     return function (scope) {
         var fragment = document.createDocumentFragment();
 
-        scope.$astNodes = astNodes;
+        scope.$$astNodes = astNodes;
 
         if (!isComponent(scope)) {
-            scope.$directives = [];
-            scope.$childComponents = [];
+            scope.$$directives = [];
+            scope.$$childComponents = [];
 
             scope.$detect = function () {
                 astNodes.forEach(function (astNode) {
                     astNode.detect();
                 });
-                utils.resetDirty(scope);
             };
 
             scope.$destroy = function () {

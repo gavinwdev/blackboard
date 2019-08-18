@@ -1,4 +1,4 @@
-import { directive, namespace } from '../view';
+import { directive, namespace, injector, component } from '../view';
 import {compute , compile} from '../parser';
 import * as utils from '../utility';
 
@@ -248,11 +248,12 @@ namespace(spaceName).directive('b-repeat', {
 
         eleNode.removeAttribute(attrNode);
 
-        var currentScope, currentItems, start, end, childScopes = [];
+        var currentScope, currentItems, start, end, ReeatItem, repeatItems = [];
         var tpl = eleNode.getOuterTpl();
         var custom = eleNode.createCustom('b-repeat', function (scope) {
             var fragment = document.createDocumentFragment();
             currentScope = scope;
+            ReeatItem = createRepeatItem();
             setCurrentItems(compute(itemsExp, currentScope));
             start = document.createComment('start: b-repeat');
             end = document.createComment('end: b-repeat');
@@ -270,22 +271,22 @@ namespace(spaceName).directive('b-repeat', {
         custom.onDetect = function () {
             var items = compute(itemsExp, currentScope);
 
-            if (utils.hasChange(items, currentItems)) {
+            if (currentItems !== items) {
                 setCurrentItems(items);
                 build(currentItems);
             }
             else {
-                childScopes.forEach(function (childScope) {
+                repeatItems.forEach(function (childScope) {
                     childScope.$detect();
                 });
             }
         };
 
         custom.onDestroy = function () {
-            childScopes.forEach(function (childScope) {
+            repeatItems.forEach(function (childScope) {
                 childScope.$destroy();
             });
-            childScopes = null;
+            repeatItems = null;
             eleNode = null;
             currentScope = null;
             currentItems = null;
@@ -294,6 +295,30 @@ namespace(spaceName).directive('b-repeat', {
             custom = null;
         };
 
+        function createRepeatItem(){
+            var repeatItemConfig = {
+                local: true,
+                template: tpl,
+                props: {},
+                events: {},
+                methods: {}
+            };
+
+            utils.forEach(currentScope.$$def.props, function(key){
+                repeatItemConfig.props[key] = currentScope[key];
+            });
+            utils.forEach(currentScope.$$def.events, function(key){
+                repeatItemConfig.events[key] = currentScope[key];
+            });
+            utils.forEach(currentScope.$$def.methods, function(key){
+                repeatItemConfig.methods[key] = currentScope[key];
+            });
+
+            repeatItemConfig.props[itemExp] = null;
+
+            return component('b-repeat-item', repeatItemConfig);
+        }
+
         function setCurrentItems(value) {
             if (utils.isArray(value)) {
                 currentItems = value;
@@ -301,29 +326,46 @@ namespace(spaceName).directive('b-repeat', {
             else {
                 currentItems = [];
             }
+
+            currentScope.$watchCollection(currentItems, function(args){
+                build(currentItems);
+            });
         }
 
         function build(items) {
             var fragment = document.createDocumentFragment();
 
-            ChildScope.prototype = currentScope;
-            function ChildScope(value) {
-                this[itemExp] = value;
-            }
-
-            childScopes.forEach(function (childScope) {
-                childScope.$destroy();
+            repeatItems.forEach(function (repeatItem) {
+                repeatItem.$destroy();
             });
-            childScopes = [];
+
+            var newRepeatItems = [];
+
             utils.forEach(items, function (key, item) {
-                var childScope = new ChildScope(item);
-                var element = compile(tpl, options)(childScope);
-                childScopes.push(childScope);
-                fragment.appendChild(element);
+                var repeatItem = getRepeatItem(item);
+
+                if(repeatItem == null){
+                    repeatItem = injector.createComponent(ReeatItem);
+                    repeatItem[itemExp] = item;
+                    fragment.appendChild(repeatItem.$renderSync());
+                }
+                else{
+                    fragment.appendChild(repeatItem.$getElement());
+                }
+
+                newRepeatItems.push(repeatItem);
             });
 
+            repeatItems = newRepeatItems;
             utils.removeNodeBetween(start, end);
             end.parentNode.insertBefore(fragment, end);
+        }
+
+        function getRepeatItem(dataItem){
+            var filters = repeatItems.filter(function(item){
+                item[itemExp] === dataItem;
+            });
+            return filters.length? filters[0]: null;
         }
     }
 });

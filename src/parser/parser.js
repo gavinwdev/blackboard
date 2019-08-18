@@ -491,8 +491,19 @@ Parser.prototype.primary = function () {
 };
 
 Parser.prototype.filter = function (baseExpression) {
-    var args = [baseExpression];
-    var result = new CallExpressionNode(this.identifier(), args);
+    var args = [baseExpression], identifiers = [this.identifier()];
+
+    while (this.expect('.')) {
+        identifiers.push(this.identifier());
+    }
+
+    // plus namespace
+    var entireName = identifiers.map(function (item) {
+        return item.name;
+    }).join('.');
+
+    var result = new CallExpressionNode(new IdentifierNode(entireName), args);
+
     result.filter = true;
 
     while (this.expect(':')) {

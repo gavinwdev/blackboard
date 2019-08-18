@@ -21,7 +21,7 @@ Messenger.prototype.fire = function (args, scope) {
     scope = scope || this;
     for (var i = 0; i < this.handlers.length; i++) {
         if (utils.isFunction(this.handlers[i])) {
-            returnValue = this.handlers[i].call(scope, scope, args);
+            returnValue = this.handlers[i].call(scope, args);
         }
     }
     return returnValue;

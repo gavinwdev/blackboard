@@ -42,11 +42,11 @@ Injector.prototype.register = function (contractType, contractName, constructor)
     }
     else {
         var matches = mapping[contractName].filter(function (item) {
-            return item.prototype.$def.namespace === constructor.prototype.$def.namespace;
+            return item.prototype.$$def.namespace === constructor.prototype.$$def.namespace;
         });
 
         if (matches.length > 0) {
-            throw new Error(contractName + ' is exist under namespace ' + matches[0].prototype.$def.namespace);
+            throw new Error(contractName + ' is exist under namespace ' + matches[0].prototype.$$def.namespace);
         }
     }
 
@@ -84,7 +84,7 @@ Injector.prototype.contains = function (contractType, contractName, ignoreCase) 
 
     if (namespace && constructors.length > 0) {
         constructors = constructors.filter(function (item) {
-            var def = item.prototype.$def;
+            var def = item.prototype.$$def;
             return def.namespace && utils.lowercase(def.namespace) === utils.lowercase(namespace);
         });
 
@@ -127,7 +127,7 @@ Injector.prototype.get = function (contractType, contractName, ignoreCase) {
 
     if (namespace && constructors.length > 0) {
         constructors = constructors.filter(function (item) {
-            var def = item.prototype.$def;
+            var def = item.prototype.$$def;
             return def.namespace && utils.lowercase(def.namespace) === utils.lowercase(namespace);
         });
 
@@ -138,7 +138,7 @@ Injector.prototype.get = function (contractType, contractName, ignoreCase) {
 
     if (constructors.length > 1) {
         var namespaces = constructors.map(function (item) {
-            return item.prototype.$def.namespace;
+            return item.prototype.$$def.namespace;
         });
         throw new Error('namespace ' + namespaces.join('|') + ' all have ' + contractName);
     }
@@ -215,7 +215,7 @@ Injector.prototype.createService = function (constructor) {
         constructor = this.getService(constructor);
     }
 
-    if (!constructor.prototype.$def.nonShared) {
+    if (!constructor.prototype.$$def.nonShared) {
         var result = services.filter(function (item) {
             return item instanceof constructor;
         });
@@ -262,11 +262,11 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
             if (utils.isFunction(constructor.super)) {
                 constructor.super.call(this);
             }
-            if (utils.isObject(this.$def.props)) {
-                utils.extend(true, this, utils.copy(true, this.$def.props));
+            if (utils.isObject(this.$$def.props)) {
+                utils.extend(true, this, utils.copy(true, this.$$def.props));
             }
-            if (utils.isArray(this.$def.events)) {
-                this.$def.events.forEach(function (e) {
+            if (utils.isArray(this.$$def.events)) {
+                this.$$def.events.forEach(function (e) {
                     self[e] = new Messenger();
                 });
             }
@@ -301,15 +301,15 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
     }
 
     function extendDef(def, superOne) {
-        if (superOne.prototype.$def && superOne.prototype.$def.protected) {
+        if (superOne.prototype.$$def && superOne.prototype.$$def.protected) {
             throw new Error(options.contractType + ': ' + def.extends + ' is protected, it is not allowed to extend!');
         }
 
-        return utils.merge(true, utils.copy(true, superOne.prototype.$def), def);
+        return utils.merge(true, utils.copy(true, superOne.prototype.$$def), def);
     }
 
     function remainConstructor(name, def, constructor) {
-        constructor.prototype.$def = def;
+        constructor.prototype.$$def = def;
 
         // create methods
         if (utils.isObject(def.methods)) {
@@ -317,7 +317,9 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
         }
 
         // register component
-        injector.register(options.contractType, name, constructor);
+        if(!def.local){
+            injector.register(options.contractType, name, constructor);
+        }
 
         // check if there is any component extends current component
         var waitingToExtends2 = [];

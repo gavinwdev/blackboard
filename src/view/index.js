@@ -47,13 +47,15 @@ function component(name, def) {
             return function constructor() {
                 var self = this;
                 this.$onCreating();
-                constructor.super.call(this);
-                // create properties
-                if (utils.isObject(this.$def.props)) {
-                    extendAndWatchProps(self, utils.copy(true, this.$def.props));
+                if(utils.isFunction(constructor.super)){
+                    constructor.super.call(this);
                 }
-                if (utils.isArray(this.$def.events)) {
-                    this.$def.events.forEach(function (e) {
+                // create properties
+                if (utils.isObject(this.$$def.props)) {
+                    this.$$unwatches.push(extendAndWatchProps(self, utils.copy(true, this.$$def.props)));
+                }
+                if (utils.isArray(this.$$def.events)) {
+                    this.$$def.events.forEach(function (e) {
                         self[e] = new Messenger();
                     });
                 }

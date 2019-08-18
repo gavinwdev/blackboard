@@ -426,7 +426,7 @@ ElementNode.prototype.appendAttribute = function (attr) {
 ElementNode.prototype.compile = function () {
     if (injector.containsComponent(this.nodeName)) {
         this.component = injector.createComponent(this.nodeName);
-        this.component.$ownerVNode = this;
+        this.component.$$ownerVNode = this;
     }
     this.attributes.forEach(function (attr) {
         attr.compile();
@@ -487,8 +487,8 @@ ElementNode.prototype.link = function (scope) {
         });
     }
     else {
-        scope.$childComponents.push(self.component);
-        self.component.$parent = scope;
+        scope.$$childComponents.push(self.component);
+        self.component.$$parent = scope;
         self.attributes.forEach(function (attr) {
             attr.link(scope, self.element, self.component);
         });
@@ -610,7 +610,7 @@ AttrNode.prototype.belongTo = function (key) {
 AttrNode.prototype.setValue = function (value) {
     this.nodeValue = value;
     this.compile();
-}
+};
 
 AttrNode.prototype.compile = function () {
     this.isEvent = this.nodeName.startsWith('@');
@@ -668,7 +668,7 @@ AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
     }
     else {
         if (this.directive) {
-            scope.$directives.push(this.directive);
+            scope.$$directives.push(this.directive);
             this.directive.$bindValue(this.binding);
         }
         else if (ownerComponent != null && ownerComponent.$hasAttr(this.nodeName)) {
@@ -702,18 +702,16 @@ AttrNode.prototype.hasChange = function () {
 
 AttrNode.prototype.update = function () {
     if (this.ownerComponent != null && this.ownerComponent.$hasAttr(this.nodeName)) {
-        this.ownerComponent.$setAttr(this.nodeName, this.binding.compute());
+        this.ownerComponent.$setAttr(this.nodeName, this.binding.value);
     }
     else {
-        var newValue = this.binding.compute();
-
         if (this.nodeName.startsWith('style')) {
-            utils.setProperty(this.ownerElement, this.nodeName, newValue);
+            utils.setProperty(this.ownerElement, this.nodeName, this.binding.value);
         }
         else {
-            this.ownerElement.setAttribute(this.nodeName, newValue);
+            this.ownerElement.setAttribute(this.nodeName, this.binding.value);
             if (this.ownerElement.nodeName === 'INPUT' && this.nodeName === 'value') {
-                this.ownerElement.value = newValue;
+                this.ownerElement.value = this.binding.value;
             }
         }
     }
@@ -764,7 +762,7 @@ TextNode.prototype.compile = function () {
 
 TextNode.prototype.link = function (scope) {
     this.binding.setScope(scope);
-    return this.render();
+    return this.render(this.binding.compute());
 };
 
 TextNode.prototype.hasChange = function () {
@@ -772,11 +770,10 @@ TextNode.prototype.hasChange = function () {
 };
 
 TextNode.prototype.update = function () {
-    eleUtils.replaceNode(this.element, this.render());
+    eleUtils.replaceNode(this.element, this.render(this.binding.value));
 };
 
-TextNode.prototype.render = function () {
-    var value = this.binding.compute();
+TextNode.prototype.render = function (value) {
     this.element = document.createTextNode(value);
     return this.element;
 };
@@ -835,9 +832,8 @@ ExpNode.prototype.compute = function (scope, options) {
     this.value = compute(this.text, scope, options);
 };
 
-ExpNode.prototype.detect = function (scope, options) {
-    this.compute(scope, options);
-    return utils.hasChange(this.value, this.oldValue);
+ExpNode.prototype.detect = function () {
+    return this.value !== this.oldValue;
 };
 
 function Binding() {
@@ -847,6 +843,7 @@ function Binding() {
     this.watchers = [];
     this.rightStr = '';
     this.output = false;
+    this.value = null;
 }
 
 Binding.prototype.setScope = function (value) {
@@ -894,23 +891,26 @@ Binding.prototype.bind = function (text, isExp) {
 
 Binding.prototype.compute = function (options) {
     if (this.watchers.length === 0) {
-        return this.text;
+        this.value = this.text;
+    }
+    else{
+        var self = this;
+
+        if (this.isExp && this.watchers.length === 1) {
+            this.watchers[0].exp.compute(self.scope, options);
+            this.value = this.watchers[0].exp.value;
+        }
+        else{
+            var text = '';
+            this.watchers.forEach(function (watcher) {
+                watcher.exp.compute(self.scope, options);
+                text += (watcher.leftStr + watcher.exp.value);
+            });
+            this.value = text + this.rightStr;
+        }
     }
 
-    var self = this;
-
-    if (this.isExp && this.watchers.length === 1) {
-        this.watchers[0].exp.compute(self.scope, options);
-        return this.watchers[0].exp.value;
-    }
-
-    var text = '';
-    this.watchers.forEach(function (watcher) {
-        watcher.exp.compute(self.scope, options);
-        text += (watcher.leftStr + watcher.exp.value);
-    });
-
-    return text + this.rightStr;
+    return this.value;
 };
 
 Binding.prototype.detect = function (options) {
@@ -918,6 +918,7 @@ Binding.prototype.detect = function (options) {
         return false;
     }
     var self = this;
+    this.compute();
     return this.watchers.some(function (watcher) {
         return watcher.exp.detect(self.scope, options);
     });

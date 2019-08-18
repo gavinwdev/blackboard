@@ -1,16 +1,16 @@
 (function (global) {
     'use strict';
 
-    var blackboard = global.blackboard;
+    var blackboard = global.blackboard, spaceName = 'app.note';
 
-    blackboard.component('test-embed', {
+    blackboard.namespace(spaceName).component('test-embed', {
         template: '<div *b-embed></div>',
         props: {
             name: 'embed'
         }
     });
 
-    blackboard.service('noteService', {
+    blackboard.namespace(spaceName).service('noteService', {
         props: {
             zIndex: 0,
             notes: []
@@ -49,7 +49,7 @@
         }
     });
 
-    blackboard.directive('note-pan', function (ele, binding) {
+    blackboard.namespace(spaceName).directive('note-pan', function (ele, binding) {
         var scope = binding.scope;
         var hammerTime = new Hammer(ele);
 
@@ -65,7 +65,7 @@
         });
     });
 
-    blackboard.directive('note-resize', function (ele, binding) {
+    blackboard.namespace(spaceName).directive('note-resize', function (ele, binding) {
         var scope = binding.scope;
         var hammerTime = new Hammer(ele);
 
@@ -81,7 +81,7 @@
         });
     });
 
-    blackboard.component('note', {
+    blackboard.namespace(spaceName).component('note', {
         templateUrl: './note.html',
         inject: {
             noteService: 'noteService'
@@ -94,7 +94,8 @@
                     y: 20
                 },
                 zIndex: 0
-            }
+            },
+            test: null
         },
         methods: {
             onMouseDown: function () {
@@ -102,6 +103,9 @@
                     this.model.zIndex = this.noteService.nextZIndex();
                 }
             }
+        },
+        onCreated: function(){
+            
         }
     });
 
@@ -116,8 +120,6 @@
             methods: {
                 createNote: function () {
                     this.noteService.create();
-                    // this.notes = this.noteService.getList();
-                    // this.$detect();
                 }
             },
             onCreated: function () {
