@@ -9,10 +9,10 @@
 
 <body>
     <div id="app" class="full-size flex-box flex-column border">
-        <div class="toolbar" style="height: 40px;background-color: silver;">
-            <button @click="createNote()">New</button>
-            <button class="fa fa-save fa-lg" @click="saveNote()">Save</button>
-            <button @click="clearNote()">Clear</button>
+        <div class="toolbar flex-box" style="height: 28px;background-color: silver;justify-content: flex-end;">
+            <button class="fa fa-plus-circle fa-lg btn" @click="createNote()"></button>
+            <button class="fa fa-save fa-lg btn" @click="saveNote()"></button>
+            <button class="fa fa-remove fa-lg btn" @click="clearNote()"></button>
         </div>
 
         <div class="flex-element relative-container">

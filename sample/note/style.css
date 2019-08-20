@@ -35,6 +35,15 @@
     position: relative;
 }
 
+.btn{
+    border: none;
+    background: none;
+}
+
+.btn:focus{
+    outline: none;
+}
+
 .note{
     position: absolute;
     border: solid 1px silver;
@@ -64,6 +73,9 @@
     position: absolute;
     right: 0;
     bottom: 0;
-    background-color: red;
     cursor: se-resize;
+}
+
+body{
+    margin: 0;
 }
