@@ -7,6 +7,9 @@
         template: '<div *b-embed></div>',
         props: {
             name: 'embed'
+        },
+        using: {
+            b: 'blackboard'
         }
     });
 
@@ -40,11 +43,26 @@
 
                 return newNote;
             },
-            save: function () {
-
-            },
             getList: function () {
                 return this.notes;
+            },
+            load: function () {
+                var self = this, json = localStorage.getItem('notes');
+                if (json) {
+                    this.notes = JSON.parse(json);
+                    this.notes.forEach(function (note) {
+                        if (note.zIndex > self.zIndex) {
+                            self.zIndex = note.zIndex;
+                        }
+                    });
+                }
+            },
+            save: function () {
+                localStorage.setItem('notes',  JSON.stringify(this.getList()));
+            },
+            removeAll: function () {
+                this.notes.empty();
+                this.save();
             }
         }
     });
@@ -120,9 +138,16 @@
             methods: {
                 createNote: function () {
                     this.noteService.create();
+                },
+                saveNote: function () {
+                    this.noteService.save();
+                },
+                clearNote: function () {
+                    this.noteService.removeAll();
                 }
             },
             onCreated: function () {
+                this.noteService.load();
                 this.notes = this.noteService.getList();
             }
         };

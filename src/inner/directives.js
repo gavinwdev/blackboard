@@ -41,6 +41,11 @@ namespace(spaceName).directive('b-style', function (ele, binding) {
         utils.forEach(value, function (key, value) {
             ele.style[key] = value;
         });
+        binding.scope.$watchObject(value, function () {
+            utils.forEach(value, function (key, value) {
+                ele.style[key] = value;
+            });
+        });
     }
     else {
         throw new Error('Parameter of b-style should be string or object');
@@ -301,7 +306,8 @@ namespace(spaceName).directive('b-repeat', {
                 template: tpl,
                 props: {},
                 events: {},
-                methods: {}
+                methods: {},
+                using: currentScope.$$def.using
             };
 
             utils.forEach(currentScope.$$def.props, function(key){
@@ -334,27 +340,25 @@ namespace(spaceName).directive('b-repeat', {
 
         function build(items) {
             var fragment = document.createDocumentFragment();
-
-            repeatItems.forEach(function (repeatItem) {
-                repeatItem.$destroy();
-            });
-
             var newRepeatItems = [];
 
             utils.forEach(items, function (key, item) {
                 var repeatItem = getRepeatItem(item);
 
-                if(repeatItem == null){
+                if (repeatItem == null) {
                     repeatItem = injector.createComponent(ReeatItem);
                     repeatItem[itemExp] = item;
-                    fragment.appendChild(repeatItem.$renderSync());
-                }
-                else{
-                    fragment.appendChild(repeatItem.$getElement());
                 }
 
+                fragment.appendChild(repeatItem.$render(true));
                 newRepeatItems.push(repeatItem);
             });
+
+            if (repeatItems.length > 0) {
+                repeatItems.forEach(function (repeatItem) {
+                    repeatItem.$destroy();
+                });
+            }
 
             repeatItems = newRepeatItems;
             utils.removeNodeBetween(start, end);
@@ -363,9 +367,20 @@ namespace(spaceName).directive('b-repeat', {
 
         function getRepeatItem(dataItem){
             var filters = repeatItems.filter(function(item){
-                item[itemExp] === dataItem;
+                return item[itemExp] === dataItem;
             });
-            return filters.length? filters[0]: null;
+
+            if(filters.length === 0){
+                return null;
+            }
+
+            var target = filters[0];
+
+            repeatItems = repeatItems.filter(function (item) {
+                return item[itemExp] !== dataItem;
+            });
+
+            return target;
         }
     }
 });

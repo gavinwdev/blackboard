@@ -48,4 +48,4 @@ function insertNodeAfter(refNode, newNode) {
     }
 }
 
-export { clearChildNodes, replaceNode, removeNode, removeNodeBetween, insertNodeAfter };
+export { getChildNodes, clearChildNodes, replaceNode, removeNode, removeNodeBetween, insertNodeAfter };

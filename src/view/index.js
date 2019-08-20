@@ -52,7 +52,7 @@ function component(name, def) {
                 }
                 // create properties
                 if (utils.isObject(this.$$def.props)) {
-                    this.$$unwatches.push(extendAndWatchProps(self, utils.copy(true, this.$$def.props)));
+                    this.$$trackers.push(extendAndWatchProps(self, utils.copy(true, this.$$def.props)));
                 }
                 if (utils.isArray(this.$$def.events)) {
                     this.$$def.events.forEach(function (e) {

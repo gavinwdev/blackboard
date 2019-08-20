@@ -3,21 +3,26 @@ import * as utils from '../utility/utils';
 import * as eleUtils from '../utility/ele-utils';
 import { injector } from './injector';
 import {compile} from '../parser';
-import { validate, watch, watchCollection } from './watch';
+import { validate, watch, watchCollection, watchObject } from './watch';
 
 export default function Component() {
     this.$$astNodes = [];
+    this.$$elements = null;
     this.$$ownerVNode = null;
     this.$$parent = null;
     this.$$childComponents = [];
     this.$$directives = [];
     this.$$detectTimeout = null;
-    this.$$unwatches = [];
-    this.$$element = null;
+    this.$$trackers = [];
 }
 
-Component.prototype.$getTemplate = function () {
+Component.prototype.$getTemplate = function (sync) {
     var self = this;
+
+    if(sync){
+        return self.$$def.template || '';
+    }
+
     return new Promise(function (resolve) {
         if (utils.isString(self.$$def.template)) {
             resolve(self.$$def.template);
@@ -33,32 +38,100 @@ Component.prototype.$getTemplate = function () {
     });
 };
 
-Component.prototype.$renderSync = function(){
-    var self = this;
-    this.$$element = compile(self.$$def.template, {
-        getEmbedTpl: function () {
-            return self.$$ownerVNode.getInnerTpl();
-        }
-    })(self);
-    return this.$$element;
+Component.prototype.$using = function (name) {
+    var using = this.$$def.using,
+        segments = name.split('.'),
+        className = segments.pop(),
+        spaceName = segments.join('.');
+
+    if (spaceName && utils.isObject(using)) {
+        utils.some(using, function (key, value) {
+            if (key === spaceName) {
+                name = value + '.' + className;
+                return true;
+            }
+        });
+    }
+
+    return name;
 };
 
-Component.prototype.$render = function () {
+Component.prototype.$makeCompileOptions = function () {
     var self = this;
+    return {
+        getEmbedTpl: function () {
+            return this.$$ownerVNode.getInnerTpl();
+        },
+        containsComponent: function (name) {
+            return injector.containsComponent(self.$using(name));
+        },
+        createComponent: function (name) {
+            return injector.createComponent(self.$using(name));
+        },
+        containsDirective: function (name) {
+            return injector.containsDirective(self.$using(name));
+        },
+        createDirective: function (name) {
+            return injector.createDirective(self.$using(name));
+        }
+    };
+};
+
+Component.prototype.$hasCache = function () {
+    return utils.isArray(this.$$elements);
+};
+
+Component.prototype.$makeCache = function (fragment) {
+    this.$$elements = eleUtils.getChildNodes(fragment);
+};
+
+Component.prototype.$fromCache = function () {
+    var fragment = document.createDocumentFragment();
+
+    this.$$elements.forEach(function (ele) {
+        fragment.appendChild(ele);
+    });
+
+    return fragment;
+};
+
+Component.prototype.$clearCache = function () {
+    this.$$elements = null;
+};
+
+Component.prototype.$render = function (sync) {
+    var self = this;
+
+    if (sync) {
+        if (this.$hasCache()) {
+            return this.$fromCache();
+        }
+
+        var compileOptions = this.$makeCompileOptions();
+        var fragment = compile(self.$getTemplate(sync), compileOptions)(self);
+        this.$makeCache(fragment);
+        return fragment;
+    }
+
     return new Promise(function (resolve) {
-        self.$getTemplate().then(function (html) {
-            self.$$element = compile(html, {
-                getEmbedTpl: function () {
-                    return self.$$ownerVNode.getInnerTpl();
-                }
-            })(self);
-            resolve(self.$$element);
-        });
+        if (self.$hasCache()) {
+            resolve(self.$fromCache());
+        }
+        else {
+            self.$getTemplate().then(function (html) {
+                var compileOptions = self.$makeCompileOptions();
+                var fragment = compile(html, compileOptions)(self);
+                self.$makeCache(fragment);
+                resolve(fragment);
+            });
+        }
     });
 };
 
-Component.prototype.$unmount = function(){
-    eleUtils.removeNode(this.$$element);
+Component.prototype.$rerender = function (sync) {
+    this.$clearCache();
+    this.$render(sync);
+
 };
 
 Component.prototype.$mount = function (idOrElement) {
@@ -73,16 +146,17 @@ Component.prototype.$mount = function (idOrElement) {
 
     eleUtils.clearChildNodes(element);
 
-    if(self.$$element){
+    this.$render().then(function (ele) {
         self.$onMounting();
-        element.appendChild(self.$$element);
+        element.appendChild(ele);
         self.$onMounted();
-    }
-    else{
-        this.$render().then(function (ele) {
-            self.$onMounting();
-            element.appendChild(ele);
-            self.$onMounted();
+    });
+};
+
+Component.prototype.$unmount = function () {
+    if(this.$hasCache()) {
+        this.$$elements.forEach(function (ele) {
+            eleUtils.removeNode(ele);
         });
     }
 };
@@ -187,11 +261,8 @@ Component.prototype.$onDestroying = function () {
     if(this.$$detectTimeout){
         clearTimeout(this.$$detectTimeout);
     }
-    var self = this;
-    this.$$unwatches.forEach(function(unwatch){
-        if(utils.isFunction(unwatch)){
-            unwatch.call(self);
-        }
+    this.$$trackers.forEach(function(tracker){
+        tracker.destroy();
     });
 };
 
@@ -199,27 +270,61 @@ Component.prototype.$onDestroyed = function () {
     if (utils.isFunction(this.$$def.onDestroyed)) {
         this.$$def.onDestroyed.call(this);
     }
+    this.$unmount();
+    this.$clearCache();
     this.$$astNodes = null;
     this.$$ownerVNode = null;
     this.$$parent = null;
     this.$$childComponents = null;
     this.$$directives = null;
-    this.$$unwatches = null;
-    this.$$element = null;
+    this.$$trackers = null;
 };
 
-Component.prototype.$validate = function(prop, action){
-    this.$$unwatches.push(validate(this, prop, action));
+Component.prototype.$track = function (tracker) {
+    var self = this;
+    this.$$trackers.push(tracker);
+    return function () {
+        tracker.destroy();
+        self.$$trackers = self.$$trackers.filter(function (item) {
+            return item !== tracker;
+        });
+    };
 };
 
-Component.prototype.$watch = function(prop, action){
-    this.$$unwatches.push(watch(this, prop, action));
+Component.prototype.$validate = function(prop, action, deep) {
+    var objProp = prop.split('.').pop().join('.'), obj = this;
+
+    if (objProp) {
+        obj = utils.getProperty(this, objProp);
+    }
+
+    if (obj) {
+        return this.$track(validate(obj, prop, action, deep));
+    }
+    else {
+        throw new Error(objProp + ' is undefined');
+    }
 };
 
-Component.prototype.$watchCollection = function(arr, action){
-    this.$$unwatches.push(watchCollection(arr,action));
+Component.prototype.$watch = function(prop, action, deep){
+    var objProp = prop.split('.').pop().join('.'), obj = this;
+
+    if (objProp) {
+        obj = utils.getProperty(this, objProp);
+    }
+
+    if (obj) {
+        return this.$track(watch(obj, prop, action, deep));
+    }
+    else {
+        throw new Error(objProp + ' is undefined');
+    }
 };
 
-Component.prototype.$getElement = function(){
-    return this.$$element;
+Component.prototype.$watchCollection = function(arr, action, deep){
+    return this.$track(watchCollection(arr, action, deep));
+};
+
+Component.prototype.$watchObject = function(obj, action, deep){
+    return this.$track(watchObject(obj, action, deep));
 };

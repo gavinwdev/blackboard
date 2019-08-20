@@ -1,7 +1,6 @@
 import * as utils from '../utility/utils';
 import * as eleUtils from '../utility/ele-utils';
 import { Parser } from './parser';
-import { injector } from '../view';
 import { compute, parse } from './index';
 
 // // Window Events
@@ -111,17 +110,6 @@ VNode.prototype.$buildSibling = function () {
     });
 };
 
-VNode.prototype.hasChildNodes = function () {
-    return this.childNodes.length !== 0;
-};
-
-VNode.prototype.clearChildNodes = function () {
-    this.childNodes.forEach(function (child) {
-        child.destroy();
-    });
-    this.childNodes.length = 0;
-};
-
 VNode.prototype.createElement = function(name){
     return new ElementNode(name);
 };
@@ -134,123 +122,13 @@ VNode.prototype.createCustom = function (name, linker) {
     return new CustomNode(name, linker);
 };
 
-VNode.prototype.appendChild = function (child) {
-    if (child.parentNode != null) {
-        throw new Error('Append child is not new');
-    }
-
-    child.parentNode = this;
-
-    if (this.childNodes.length === 0) {
-        this.firstChild = child;
-    }
-    else {
-        this.lastChild.nextSibling = child;
-        child.previousSibling = this.lastChild;
-    }
-
-    child.compile();
-    this.lastChild = child;
-    this.childNodes.push(child);
-};
-
-VNode.prototype.insertBefore = function (refChild, newChild) {
-    if (newChild.parentNode != null) {
-        throw new Error('Insert child is not new');
-    }
-    var index = this.childNodes.indexOf(refChild);
-    if (index === -1) {
-        throw new Error('Ref node is not a child of specified node');
-    }
-
-    newChild.parentNode = this;
-
-    if(refChild.previousSibling != null) {
-        newChild.previousSibling = refChild.previousSibling;
-        refChild.previousSibling.nextSibling = newChild;
-    }
-
-    newChild.nextSibling = refChild;
-    refChild.previousSibling = newChild;
-
-    if (index === 0) {
-        this.firstChild = newChild;
-    }
-
-    newChild.compile();
-    this.childNodes.splice(index, 0, newChild);
-};
-
-VNode.prototype.insertAfter = function (refChild, newChild) {
-    if (refChild.nextSibling == null) {
-        this.appendChild(newChild);
-    }
-    else {
-        this.insertBefore(refChild.nextSibling, newChild);
-    }
-};
-
-VNode.prototype.removeChild = function (child) {
-    var index = this.childNodes.indexOf(child);
-    if (index === -1) {
-        throw new Error('Remove node is not a child of specified node');
-    }
-
-    if(child.previousSibling != null){
-        child.previousSibling.nextSibling = child.nextSibling;
-    }
-
-    if(child.nextSibling != null) {
-        child.nextSibling.previousSibling = child.previousSibling;
-    }
-
-    if(index === 0) {
-        this.firstChild = child.nextSibling;
-    }
-
-    if(index === (this.childNodes.length -1)){
-        this.lastChild = child.previousSibling;
-    }
-
-    child.destroy();
-    this.childNodes.splice(index, 1);
-
-    return child;
-};
-
-VNode.prototype.replaceChild = function (refChild, newChild) {
-    if (newChild.parentNode != null) {
-        throw new Error('Replace child is not new');
-    }
-    var index = this.childNodes.indexOf(refChild);
-    if (index === -1) {
-        throw new Error('Ref node is not a child of specified node');
-    }
-
-    newChild.parentNode = this;
-    newChild.previousSibling = refChild.previousSibling;
-    newChild.nextSibling = refChild.nextSibling;
-
-    if (this.firstChild === refChild) {
-        this.firstChild = newChild;
-    }
-
-    if (this.lastChild === refChild) {
-        this.lastChild = newChild;
-    }
-
-    refChild.destroy();
-    newChild.compile();
-    this.childNodes.splice(index, 1, newChild);
-};
-
 VNode.prototype.cloneNode = function () {
 
 };
 
-VNode.prototype.compile = function () {
+VNode.prototype.compile = function (options) {
     this.childNodes.forEach(function (child) {
-        child.compile();
+        child.compile(options);
     });
 };
 
@@ -359,11 +237,133 @@ function ElementNode(name) {
     this.element = null;
     this.component = null;
     this.selfClosed = false;
+    this.compileOptions = null;
 }
 
 ElementNode.prototype.$pushAttribute = function (attr) {
     attr.ownerVElement = this;
     this.attributes.push(attr);
+};
+
+ElementNode.prototype.hasChildNodes = function () {
+    return this.childNodes.length !== 0;
+};
+
+ElementNode.prototype.clearChildNodes = function () {
+    this.childNodes.forEach(function (child) {
+        child.destroy();
+    });
+    this.childNodes.length = 0;
+};
+
+ElementNode.prototype.appendChild = function (child) {
+    if (child.parentNode != null) {
+        throw new Error('Append child is not new');
+    }
+
+    child.parentNode = this;
+
+    if (this.childNodes.length === 0) {
+        this.firstChild = child;
+    }
+    else {
+        this.lastChild.nextSibling = child;
+        child.previousSibling = this.lastChild;
+    }
+
+    child.compile(this.compileOptions);
+    this.lastChild = child;
+    this.childNodes.push(child);
+};
+
+ElementNode.prototype.insertBefore = function (refChild, newChild) {
+    if (newChild.parentNode != null) {
+        throw new Error('Insert child is not new');
+    }
+    var index = this.childNodes.indexOf(refChild);
+    if (index === -1) {
+        throw new Error('Ref node is not a child of specified node');
+    }
+
+    newChild.parentNode = this;
+
+    if(refChild.previousSibling != null) {
+        newChild.previousSibling = refChild.previousSibling;
+        refChild.previousSibling.nextSibling = newChild;
+    }
+
+    newChild.nextSibling = refChild;
+    refChild.previousSibling = newChild;
+
+    if (index === 0) {
+        this.firstChild = newChild;
+    }
+
+    newChild.compile(this.compileOptions);
+    this.childNodes.splice(index, 0, newChild);
+};
+
+ElementNode.prototype.insertAfter = function (refChild, newChild) {
+    if (refChild.nextSibling == null) {
+        this.appendChild(newChild);
+    }
+    else {
+        this.insertBefore(refChild.nextSibling, newChild);
+    }
+};
+
+ElementNode.prototype.removeChild = function (child) {
+    var index = this.childNodes.indexOf(child);
+    if (index === -1) {
+        throw new Error('Remove node is not a child of specified node');
+    }
+
+    if(child.previousSibling != null){
+        child.previousSibling.nextSibling = child.nextSibling;
+    }
+
+    if(child.nextSibling != null) {
+        child.nextSibling.previousSibling = child.previousSibling;
+    }
+
+    if(index === 0) {
+        this.firstChild = child.nextSibling;
+    }
+
+    if(index === (this.childNodes.length -1)){
+        this.lastChild = child.previousSibling;
+    }
+
+    child.destroy();
+    this.childNodes.splice(index, 1);
+
+    return child;
+};
+
+ElementNode.prototype.replaceChild = function (refChild, newChild) {
+    if (newChild.parentNode != null) {
+        throw new Error('Replace child is not new');
+    }
+    var index = this.childNodes.indexOf(refChild);
+    if (index === -1) {
+        throw new Error('Ref node is not a child of specified node');
+    }
+
+    newChild.parentNode = this;
+    newChild.previousSibling = refChild.previousSibling;
+    newChild.nextSibling = refChild.nextSibling;
+
+    if (this.firstChild === refChild) {
+        this.firstChild = newChild;
+    }
+
+    if (this.lastChild === refChild) {
+        this.lastChild = newChild;
+    }
+
+    refChild.destroy();
+    newChild.compile(this.compileOptions);
+    this.childNodes.splice(index, 1, newChild);
 };
 
 ElementNode.prototype.hasAttributes = function () {
@@ -382,7 +382,7 @@ ElementNode.prototype.setAttribute = function (key, value) {
     else {
         target = new AttrNode(key, value);
         target.ownerVElement = this;
-        target.compile();
+        target.compile(this.compileOptions);
     }
 
     this.attributes.push(attr);
@@ -418,107 +418,9 @@ ElementNode.prototype.appendAttribute = function (attr) {
     }
 
     attr.ownerVElement = this;
-    attr.compile();
+    attr.compile(this.compileOptions);
     this.attributes.push(attr);
     return attr;
-};
-
-ElementNode.prototype.compile = function () {
-    if (injector.containsComponent(this.nodeName)) {
-        this.component = injector.createComponent(this.nodeName);
-        this.component.$$ownerVNode = this;
-    }
-    this.attributes.forEach(function (attr) {
-        attr.compile();
-    });
-    if (this.component == null) {
-        this.childNodes.forEach(function (child) {
-            child.compile();
-        });
-    }
-};
-
-ElementNode.prototype.directives = function () {
-    var result = [];
-
-    this.attributes.map(function (attr) {
-        return attr.directives();
-    }).forEach(function (item) {
-        result = result.concat(item);
-    });
-
-    if(this.component == null){
-        this.childNodes.map(function (child) {
-            return child.directives();
-        }).forEach(function (item) {
-            result = result.concat(item);
-        });
-    }
-
-    return result;
-};
-
-ElementNode.prototype.getDirective = function (key) {
-    var result = [];
-
-    this.attributes.map(function (attr) {
-        return attr.directives();
-    }).forEach(function (item) {
-        result = result.concat(item);
-    });
-
-    return result.filter(function (item) {
-        return item.$key === key;
-    });
-};
-
-ElementNode.prototype.link = function (scope) {
-    var self = this;
-
-    self.scope = scope;
-    self.element = document.createElement(self.nodeName);
-
-    if (self.component == null) {
-        this.attributes.forEach(function (attr) {
-            attr.link(scope, self.element);
-        });
-        self.childNodes.forEach(function (child) {
-            self.element.appendChild(child.link(scope));
-        });
-    }
-    else {
-        scope.$$childComponents.push(self.component);
-        self.component.$$parent = scope;
-        self.attributes.forEach(function (attr) {
-            attr.link(scope, self.element, self.component);
-        });
-        self.component.$mount(self.element);
-    }
-
-    return self.element;
-};
-
-ElementNode.prototype.afterLink = function () {
-    this.attributes.forEach(function (attr) {
-        attr.afterLink();
-    });
-
-    if (this.component == null) {
-        this.childNodes.forEach(function (child) {
-            child.afterLink();
-        });
-    }
-};
-
-ElementNode.prototype.detect = function () {
-    this.attributes.forEach(function (attr) {
-        attr.detect();
-    });
-    if (this.component == null) {
-        this.childNodes.forEach(function (child) {
-            child.detect();
-        });
-    }
 };
 
 ElementNode.prototype.getOuterTpl = function () {
@@ -570,6 +472,105 @@ ElementNode.prototype.setInnerTpl = function (tpl) {
     });
 };
 
+ElementNode.prototype.getDirective = function (key) {
+    var result = [];
+
+    this.attributes.map(function (attr) {
+        return attr.directives();
+    }).forEach(function (item) {
+        result = result.concat(item);
+    });
+
+    return result.filter(function (item) {
+        return item.$key === key;
+    });
+};
+
+ElementNode.prototype.compile = function (options) {
+    this.compileOptions = options;
+    if (options.containsComponent(this.nodeName)) {
+        this.component = options.createComponent(this.nodeName);
+        this.component.$$ownerVNode = this;
+    }
+    this.attributes.forEach(function (attr) {
+        attr.compile(options);
+    });
+    if (this.component == null) {
+        this.childNodes.forEach(function (child) {
+            child.compile(options);
+        });
+    }
+};
+
+ElementNode.prototype.directives = function () {
+    var result = [];
+
+    this.attributes.map(function (attr) {
+        return attr.directives();
+    }).forEach(function (item) {
+        result = result.concat(item);
+    });
+
+    if(this.component == null){
+        this.childNodes.map(function (child) {
+            return child.directives();
+        }).forEach(function (item) {
+            result = result.concat(item);
+        });
+    }
+
+    return result;
+};
+
+ElementNode.prototype.link = function (scope) {
+    var self = this;
+
+    self.scope = scope;
+    self.element = document.createElement(self.nodeName);
+
+    if (self.component == null) {
+        this.attributes.forEach(function (attr) {
+            attr.link(scope, self.element);
+        });
+        self.childNodes.forEach(function (child) {
+            self.element.appendChild(child.link(scope));
+        });
+    }
+    else {
+        scope.$$childComponents.push(self.component);
+        self.component.$$parent = scope;
+        self.attributes.forEach(function (attr) {
+            attr.link(scope, self.element, self.component);
+        });
+        self.component.$mount(self.element);
+    }
+
+    return self.element;
+};
+
+ElementNode.prototype.afterLink = function () {
+    this.attributes.forEach(function (attr) {
+        attr.afterLink();
+    });
+
+    if (this.component == null) {
+        this.childNodes.forEach(function (child) {
+            child.afterLink();
+        });
+    }
+};
+
+ElementNode.prototype.detect = function () {
+    this.attributes.forEach(function (attr) {
+        attr.detect();
+    });
+    if (this.component == null) {
+        this.childNodes.forEach(function (child) {
+            child.detect();
+        });
+    }
+};
+
 ElementNode.prototype.destroy = function () {
     this.childNodes.map(function (child) {
         child.destroy();
@@ -583,6 +584,7 @@ ElementNode.prototype.destroy = function () {
         this.component = null;
     }
     this.element = null;
+    this.compileOptions = null;
     VNode.$destroy(this);
 };
 
@@ -609,10 +611,11 @@ AttrNode.prototype.belongTo = function (key) {
 
 AttrNode.prototype.setValue = function (value) {
     this.nodeValue = value;
-    this.compile();
+    this.compile(this.options);
 };
 
-AttrNode.prototype.compile = function () {
+AttrNode.prototype.compile = function (options) {
+    this.options = options;
     this.isEvent = this.nodeName.startsWith('@');
     this.isBinding = this.nodeName.startsWith(':');
     this.isDirective = this.nodeName.startsWith('*');
@@ -622,8 +625,8 @@ AttrNode.prototype.compile = function () {
     this.isDomEvent = utils.contains(domEvents, this.nodeName);
 
     if (this.isDirective) {
-        if (injector.containsDirective(this.nodeName)) {
-            this.directive = injector.createDirective(this.nodeName);
+        if (options.containsDirective(this.nodeName)) {
+            this.directive = options.createDirective(this.nodeName);
             this.directive.$bindNode(this);
         }
         else {

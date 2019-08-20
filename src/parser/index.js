@@ -45,13 +45,25 @@ function compile(html, options) {
     var defaults = {
             getEmbedTpl: function () {
                 return '';
+            },
+            containsComponent: function () {
+                return false;
+            },
+            createComponent: function () {
+                return null;
+            },
+            containsDirective: function () {
+                return false;
+            },
+            createDirective: function () {
+                return null;
             }
         },
         settings = utils.merge(defaults, options),
         astNodes = parse(html);
 
     astNodes.forEach(function (astNode) {
-        astNode.compile();
+        astNode.compile(settings);
     });
 
     astNodes.forEach(function (astNode) {
