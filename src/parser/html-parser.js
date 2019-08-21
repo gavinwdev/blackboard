@@ -60,17 +60,6 @@ function VNode(type, name, value) {
     this.scope = null;
 }
 
-VNode.$destroy = function (self) {
-    self.childNodes.length = 0;
-    self.parentNode = null;
-    self.previousSibling = null;
-    self.nextSibling = null;
-    self.firstChild = null;
-    self.lastChild = null;
-    self.ownerVDocument = null;
-    self.scope = null;
-};
-
 VNode.prototype.$pushChild = function (child) {
     child.parentNode = this;
     this.childNodes.push(child);
@@ -110,6 +99,28 @@ VNode.prototype.$buildSibling = function () {
     });
 };
 
+VNode.prototype.$clearParentAndSibling = function() {
+    this.parentNode = null;
+    this.previousSibling = null;
+    this.nextSibling = null;
+};
+
+VNode.prototype.$remove = function () {
+    if (this.parentNode != null) {
+        this.parentNode.removeChild(this);
+    }
+};
+
+VNode.prototype.$destroy = function () {
+    this.$remove();
+    this.$clearParentAndSibling();
+    this.childNodes.length = 0;
+    this.firstChild = null;
+    this.lastChild = null;
+    this.ownerVDocument = null;
+    this.scope = null;
+};
+
 VNode.prototype.createElement = function(name){
     return new ElementNode(name);
 };
@@ -122,8 +133,131 @@ VNode.prototype.createCustom = function (name, linker) {
     return new CustomNode(name, linker);
 };
 
-VNode.prototype.cloneNode = function () {
+VNode.prototype.hasChildNodes = function () {
+    return this.childNodes.length !== 0;
+};
 
+VNode.prototype.clearChildNodes = function () {
+    this.childNodes.forEach(function (child) {
+        child.destroy();
+    });
+    this.childNodes.length = 0;
+};
+
+VNode.prototype.appendChild = function (child) {
+    if (child.parentNode != null) {
+        child.parentNode.removeChild(child);
+    }
+
+    child.parentNode = this;
+
+    if (this.childNodes.length === 0) {
+        this.firstChild = child;
+    }
+    else {
+        this.lastChild.nextSibling = child;
+        child.previousSibling = this.lastChild;
+    }
+
+    child.compile(this.compileOptions);
+    this.lastChild = child;
+    this.childNodes.push(child);
+    return child;
+};
+
+VNode.prototype.insertBefore = function (refChild, newChild) {
+    if (newChild.parentNode != null) {
+        newChild.parentNode.removeChild(newChild);
+    }
+    var index = this.childNodes.indexOf(refChild);
+    if (index === -1) {
+        throw new Error('Ref node is not a child of specified node');
+    }
+
+    newChild.parentNode = this;
+
+    if(refChild.previousSibling != null) {
+        newChild.previousSibling = refChild.previousSibling;
+        refChild.previousSibling.nextSibling = newChild;
+    }
+
+    newChild.nextSibling = refChild;
+    refChild.previousSibling = newChild;
+
+    if (index === 0) {
+        this.firstChild = newChild;
+    }
+
+    newChild.compile(this.compileOptions);
+    this.childNodes.splice(index, 0, newChild);
+    return newChild;
+};
+
+VNode.prototype.insertAfter = function (refChild, newChild) {
+    if (refChild.nextSibling == null) {
+        return this.appendChild(newChild);
+    }
+
+    return this.insertBefore(refChild.nextSibling, newChild);
+};
+
+VNode.prototype.removeChild = function (child) {
+    var index = this.childNodes.indexOf(child);
+    if (index === -1) {
+        throw new Error('Remove node is not a child of specified node');
+    }
+
+    if(child.previousSibling != null){
+        child.previousSibling.nextSibling = child.nextSibling;
+    }
+
+    if(child.nextSibling != null) {
+        child.nextSibling.previousSibling = child.previousSibling;
+    }
+
+    if(index === 0) {
+        this.firstChild = child.nextSibling;
+    }
+
+    if(index === (this.childNodes.length -1)){
+        this.lastChild = child.previousSibling;
+    }
+
+    child.$clearParentAndSibling();
+    this.childNodes.splice(index, 1);
+
+    return child;
+};
+
+VNode.prototype.replaceChild = function (refChild, newChild) {
+    if (newChild.parentNode != null) {
+        newChild.parentNode.removeChild(newChild);
+    }
+    var index = this.childNodes.indexOf(refChild);
+    if (index === -1) {
+        throw new Error('Ref node is not a child of specified node');
+    }
+
+    newChild.parentNode = this;
+    newChild.previousSibling = refChild.previousSibling;
+    newChild.nextSibling = refChild.nextSibling;
+
+    if (this.firstChild === refChild) {
+        this.firstChild = newChild;
+    }
+
+    if (this.lastChild === refChild) {
+        this.lastChild = newChild;
+    }
+
+    refChild.$clearParentAndSibling();
+    newChild.compile(this.compileOptions);
+    this.childNodes.splice(index, 1, newChild);
+    return newChild;
+};
+
+VNode.prototype.cloneNode = function () {
+    throw new Error('not implemented');
 };
 
 VNode.prototype.compile = function (options) {
@@ -177,7 +311,7 @@ VNode.prototype.destroy = function () {
     this.childNodes.map(function (child) {
         child.destroy();
     });
-    VNode.$destroy(this);
+    this.$destroy();
 };
 
 utils.inherit(CustomNode, VNode);
@@ -220,7 +354,7 @@ CustomNode.prototype.destroy = function() {
     if (utils.isFunction(this.onDestroy)) {
         return this.onDestroy.call(this);
     }
-    VNode.$destroy(this);
+    this.$destroy();
 };
 
 utils.inherit(DocumentNode, VNode);
@@ -243,127 +377,6 @@ function ElementNode(name) {
 ElementNode.prototype.$pushAttribute = function (attr) {
     attr.ownerVElement = this;
     this.attributes.push(attr);
-};
-
-ElementNode.prototype.hasChildNodes = function () {
-    return this.childNodes.length !== 0;
-};
-
-ElementNode.prototype.clearChildNodes = function () {
-    this.childNodes.forEach(function (child) {
-        child.destroy();
-    });
-    this.childNodes.length = 0;
-};
-
-ElementNode.prototype.appendChild = function (child) {
-    if (child.parentNode != null) {
-        throw new Error('Append child is not new');
-    }
-
-    child.parentNode = this;
-
-    if (this.childNodes.length === 0) {
-        this.firstChild = child;
-    }
-    else {
-        this.lastChild.nextSibling = child;
-        child.previousSibling = this.lastChild;
-    }
-
-    child.compile(this.compileOptions);
-    this.lastChild = child;
-    this.childNodes.push(child);
-};
-
-ElementNode.prototype.insertBefore = function (refChild, newChild) {
-    if (newChild.parentNode != null) {
-        throw new Error('Insert child is not new');
-    }
-    var index = this.childNodes.indexOf(refChild);
-    if (index === -1) {
-        throw new Error('Ref node is not a child of specified node');
-    }
-
-    newChild.parentNode = this;
-
-    if(refChild.previousSibling != null) {
-        newChild.previousSibling = refChild.previousSibling;
-        refChild.previousSibling.nextSibling = newChild;
-    }
-
-    newChild.nextSibling = refChild;
-    refChild.previousSibling = newChild;
-
-    if (index === 0) {
-        this.firstChild = newChild;
-    }
-
-    newChild.compile(this.compileOptions);
-    this.childNodes.splice(index, 0, newChild);
-};
-
-ElementNode.prototype.insertAfter = function (refChild, newChild) {
-    if (refChild.nextSibling == null) {
-        this.appendChild(newChild);
-    }
-    else {
-        this.insertBefore(refChild.nextSibling, newChild);
-    }
-};
-
-ElementNode.prototype.removeChild = function (child) {
-    var index = this.childNodes.indexOf(child);
-    if (index === -1) {
-        throw new Error('Remove node is not a child of specified node');
-    }
-
-    if(child.previousSibling != null){
-        child.previousSibling.nextSibling = child.nextSibling;
-    }
-
-    if(child.nextSibling != null) {
-        child.nextSibling.previousSibling = child.previousSibling;
-    }
-
-    if(index === 0) {
-        this.firstChild = child.nextSibling;
-    }
-
-    if(index === (this.childNodes.length -1)){
-        this.lastChild = child.previousSibling;
-    }
-
-    child.destroy();
-    this.childNodes.splice(index, 1);
-
-    return child;
-};
-
-ElementNode.prototype.replaceChild = function (refChild, newChild) {
-    if (newChild.parentNode != null) {
-        throw new Error('Replace child is not new');
-    }
-    var index = this.childNodes.indexOf(refChild);
-    if (index === -1) {
-        throw new Error('Ref node is not a child of specified node');
-    }
-
-    newChild.parentNode = this;
-    newChild.previousSibling = refChild.previousSibling;
-    newChild.nextSibling = refChild.nextSibling;
-
-    if (this.firstChild === refChild) {
-        this.firstChild = newChild;
-    }
-
-    if (this.lastChild === refChild) {
-        this.lastChild = newChild;
-    }
-
-    refChild.destroy();
-    newChild.compile(this.compileOptions);
-    this.childNodes.splice(index, 1, newChild);
 };
 
 ElementNode.prototype.hasAttributes = function () {
@@ -538,7 +551,7 @@ ElementNode.prototype.link = function (scope) {
     }
     else {
         scope.$$childComponents.push(self.component);
-        self.component.$$parent = scope;
+        self.component.$$parentComponent = scope;
         self.attributes.forEach(function (attr) {
             attr.link(scope, self.element, self.component);
         });
@@ -583,9 +596,19 @@ ElementNode.prototype.destroy = function () {
         this.component.$destroy();
         this.component = null;
     }
-    this.element = null;
+    this.removeDomElement();
     this.compileOptions = null;
-    VNode.$destroy(this);
+    this.$destroy();
+};
+
+ElementNode.prototype.getDomElement = function () {
+    return this.element;
+};
+
+ElementNode.prototype.removeDomElement = function () {
+    if(this.element != null){
+        eleUtils.removeNode(this.element);
+    }
 };
 
 utils.inherit(AttrNode, VNode);
@@ -671,7 +694,7 @@ AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
     }
     else {
         if (this.directive) {
-            scope.$$directives.push(this.directive);
+            scope.$$childDirectives.push(this.directive);
             this.directive.$bindValue(this.binding);
         }
         else if (ownerComponent != null && ownerComponent.$hasAttr(this.nodeName)) {
@@ -748,7 +771,7 @@ AttrNode.prototype.destroy = function(){
     this.ownerVElement = null;
     this.ownerElement = null;
     this.ownerComponent = null;
-    VNode.$destroy(this);
+    this.$destroy();
 };
 
 utils.inherit(TextNode, VNode);
@@ -793,7 +816,7 @@ TextNode.prototype.destroy = function () {
     this.binding.destroy();
     this.binding = null;
     this.element = null;
-    VNode.$destroy(this);
+    this.$destroy();
 };
 
 utils.inherit(CommentNode, VNode);
@@ -941,7 +964,7 @@ HtmlParser.prototype.parse = function (text) {
     this.text = text;
     this.tokens = this.lexer.lex(text);
 
-    var root = new ElementNode('tpl');
+    var fargment = new DocumentFragmentNode();
     var doctype, allowDocType = !!this.options.allowDocType;
     while (this.index < this.tokens.length) {
         var token = this.current();
@@ -950,7 +973,7 @@ HtmlParser.prototype.parse = function (text) {
             if (allowDocType) {
                 if (!doctype) {
                     doctype = this.doctype();
-                    root.$pushChild(doctype);
+                    fargment.$pushChild(doctype);
                 }
                 else {
                     this.throwError("DOCTYPE only allow one", token);
@@ -963,26 +986,26 @@ HtmlParser.prototype.parse = function (text) {
         else if (token.comment) {
             var comment = new CommentNode();
             comment.nodeValue = token.text;
-            root.$pushChild(comment);
+            fargment.$pushChild(comment);
             this.next();
         }
         else if (token.textTag) {
             var text = new TextNode();
             text.nodeValue = token.text;
-            root.$pushChild(text);
+            fargment.$pushChild(text);
             this.next();
         }
         else if (token.tag && token.begin) {
-            root.$pushChild(this.element());
+            fargment.$pushChild(this.element());
         }
         else {
             this.throwError("impossible", token);
         }
     }
 
-    root.$buildSibling();
+    fargment.$buildSibling();
 
-    return root.childNodes;
+    return fargment.childNodes;
 };
 
 HtmlParser.prototype.doctype = function () {

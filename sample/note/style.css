@@ -1,3 +1,11 @@
+body{
+    margin: 0;
+}
+
+
+
+
+
 .flex-box{
     display: flex;
 }
@@ -44,6 +52,28 @@
     outline: none;
 }
 
+.toolbar
+{
+    height: 24px;
+    background-color: #c0c0c038;
+    justify-content: flex-end;
+    padding: 2px 10px;
+}
+
+.toolbar.btn{
+    margin:0 4px;
+}
+
+.toolbar .btn:hover
+{
+    background-color: silver;
+}
+
+.toolbar .btn:active
+{
+    background-color: #928f8f;
+}
+
 .note{
     position: absolute;
     border: solid 1px silver;
@@ -53,6 +83,7 @@
 
 .note-tlb{
     height: 10px;
+    justify-content: flex-end;
 }
 
 .note-content{
@@ -74,8 +105,4 @@
     right: 0;
     bottom: 0;
     cursor: se-resize;
-}
-
-body{
-    margin: 0;
 }

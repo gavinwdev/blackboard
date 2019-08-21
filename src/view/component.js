@@ -6,12 +6,11 @@ import {compile} from '../parser';
 import { validate, watch, watchCollection, watchObject } from './watch';
 
 export default function Component() {
-    this.$$astNodes = [];
-    this.$$elements = null;
+    this.$$vnodes = null;
     this.$$ownerVNode = null;
-    this.$$parent = null;
+    this.$$parentComponent = null;
     this.$$childComponents = [];
-    this.$$directives = [];
+    this.$$childDirectives = [];
     this.$$detectTimeout = null;
     this.$$trackers = [];
 }
@@ -77,51 +76,51 @@ Component.prototype.$makeCompileOptions = function () {
     };
 };
 
-Component.prototype.$hasCache = function () {
-    return utils.isArray(this.$$elements);
+Component.prototype.$hasVNodes = function () {
+    return utils.isArray(this.$$vnodes);
 };
 
-Component.prototype.$makeCache = function (fragment) {
-    this.$$elements = eleUtils.getChildNodes(fragment);
-};
-
-Component.prototype.$fromCache = function () {
+Component.prototype.$fromVNodes = function () {
     var fragment = document.createDocumentFragment();
 
-    this.$$elements.forEach(function (ele) {
-        fragment.appendChild(ele);
+    this.$$vnodes.forEach(function (vnode) {
+        fragment.appendChild(vnode.getDomElement());
     });
 
     return fragment;
 };
 
-Component.prototype.$clearCache = function () {
-    this.$$elements = null;
+Component.prototype.$clearVNodes = function () {
+    if (!this.$hasVNodes()) {
+        return;
+    }
+    this.$$vnodes.forEach(function (vnode) {
+        vnode.destroy();
+    });
+    this.$$vnodes = null;
 };
 
 Component.prototype.$render = function (sync) {
     var self = this;
 
     if (sync) {
-        if (this.$hasCache()) {
-            return this.$fromCache();
+        if (this.$hasVNodes()) {
+            return this.$fromVNodes();
         }
 
         var compileOptions = this.$makeCompileOptions();
         var fragment = compile(self.$getTemplate(sync), compileOptions)(self);
-        this.$makeCache(fragment);
         return fragment;
     }
 
     return new Promise(function (resolve) {
-        if (self.$hasCache()) {
-            resolve(self.$fromCache());
+        if (self.$hasVNodes()) {
+            resolve(self.$fromVNodes());
         }
         else {
             self.$getTemplate().then(function (html) {
                 var compileOptions = self.$makeCompileOptions();
                 var fragment = compile(html, compileOptions)(self);
-                self.$makeCache(fragment);
                 resolve(fragment);
             });
         }
@@ -129,7 +128,7 @@ Component.prototype.$render = function (sync) {
 };
 
 Component.prototype.$rerender = function (sync) {
-    this.$clearCache();
+    this.$clearVNodes();
     this.$render(sync);
 
 };
@@ -154,15 +153,15 @@ Component.prototype.$mount = function (idOrElement) {
 };
 
 Component.prototype.$unmount = function () {
-    if(this.$hasCache()) {
-        this.$$elements.forEach(function (ele) {
-            eleUtils.removeNode(ele);
+    if(this.$hasVNodes()) {
+        this.$$vnodes.forEach(function (vnode) {
+            vnode.removeDomElement();
         });
     }
 };
 
 Component.prototype.$detect = function () {
-    if (this.$$detectTimeout) {
+    if (this.$$detectTimeout || !this.$$vnodes) {
         return;
     }
 
@@ -170,8 +169,8 @@ Component.prototype.$detect = function () {
     self.$$detectTimeout = setTimeout(function () {
         self.$$detectTimeout = null;
         self.$onUpdating();
-        self.$$astNodes.forEach(function (astNode) {
-            astNode.detect();
+        self.$$vnodes.forEach(function (vnode) {
+            vnode.detect();
         });
         self.$onUpdated();
     });
@@ -179,9 +178,7 @@ Component.prototype.$detect = function () {
 
 Component.prototype.$destroy = function () {
     this.$onDestroying();
-    this.$$astNodes.forEach(function (astNode) {
-        astNode.destroy();
-    });
+    this.$clearVNodes();
     this.$onDestroyed();
 };
 
@@ -271,12 +268,10 @@ Component.prototype.$onDestroyed = function () {
         this.$$def.onDestroyed.call(this);
     }
     this.$unmount();
-    this.$clearCache();
-    this.$$astNodes = null;
     this.$$ownerVNode = null;
-    this.$$parent = null;
+    this.$$parentComponent = null;
     this.$$childComponents = null;
-    this.$$directives = null;
+    this.$$childDirectives = null;
     this.$$trackers = null;
 };
 

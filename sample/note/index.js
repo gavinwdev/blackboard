@@ -63,6 +63,13 @@
             removeAll: function () {
                 this.notes.empty();
                 this.save();
+            },
+            remove: function (dataItem) {
+                var index = this.notes.indexOf(dataItem);
+
+                if(index !== -1){
+                    this.notes.splice(index, 1);
+                }
             }
         }
     });
@@ -120,6 +127,9 @@
                 if (!this.noteService.isMaxZIndex(this.model.zIndex)) {
                     this.model.zIndex = this.noteService.nextZIndex();
                 }
+            },
+            remove: function () {
+                this.noteService.remove(this.model);
             }
         },
         onCreated: function(){

@@ -75,10 +75,10 @@ function compile(html, options) {
     return function (scope) {
         var fragment = document.createDocumentFragment();
 
-        scope.$$astNodes = astNodes;
+        scope.$$vnodes = astNodes;
 
         if (!isComponent(scope)) {
-            scope.$$directives = [];
+            scope.$$childDirectives = [];
             scope.$$childComponents = [];
 
             scope.$detect = function () {

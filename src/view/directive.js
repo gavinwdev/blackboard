@@ -3,7 +3,7 @@ import {injector} from './injector';
 
 export default function Directive() {
     this.$$binding = null;
-    this.$$node = null;
+    this.$$vnode = null;
     this.output = false;
 }
 
@@ -26,7 +26,7 @@ Directive.prototype.$onCreated = function () {
 };
 
 Directive.prototype.$bindNode = function (node) {
-    this.$$node = node;
+    this.$$vnode = node;
 };
 
 Directive.prototype.$bindValue = function (binding) {
@@ -35,7 +35,7 @@ Directive.prototype.$bindValue = function (binding) {
 
 Directive.prototype.$compile = function (options) {
     if (utils.isFunction(this.$$def.onCompile)) {
-        this.$$def.onCompile.call(this, this.$$node, options);
+        this.$$def.onCompile.call(this, this.$$vnode, options);
     }
 };
 
@@ -66,5 +66,5 @@ Directive.prototype.$destroy = function () {
         this.$$def.onDestroy.call(this);
     }
     this.$$binding = null;
-    this.$$node = null;
+    this.$$vnode = null;
 };

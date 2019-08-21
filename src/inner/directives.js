@@ -268,6 +268,7 @@ namespace(spaceName).directive('b-repeat', {
         });
 
         eleNode.parentNode.replaceChild(eleNode, custom);
+        eleNode.destroy();
 
         custom.onInsert = function () {
             build(currentItems);
