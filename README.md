@@ -1,15 +1,28 @@
 # blackboard.js
 
-blackboard.js lets you extend HTML’s syntax to express application’s __component__, it helps you structure HTML related code and improve the reusablity of user interface. It lets you write less code for view and focus on business logic.
+blackboard.js lets you extend HTML’s syntax to express application’s __component__, it helps you structure HTML related code and improve the reusablity of user interface. It also lets you write less code for view and focus on business logic.
 
 
 # compatibility
 
-It is designed to support all browsers that are __ES5-compliant__
+It uses Proxy and Promise class defined in the ES6 standard, so it only works on browsers which support these feature.
 
 # dependency
 
 Currently it has dependency for axio.js to load remote template, but plan to remove it later.
+
+# two-way binding
+
+blackboard.js  uses Proxy object to detect property changed, there is no dirty data checking cycle or data hijacking ahead of time. 
+
+blackboard.js is base on virtual node, virtual node would watch binding value changed and do respective view update while it detects change happening. 
+
+In order to make two-way binding works, it is a must to use proxy object of component instance to update property value, for example
+
+```
+// update model property to 'new value'
+this.proxy.model = 'new value';
+```
 
 # features
 
@@ -102,21 +115,30 @@ window.onload = function(){
 ## common
 The following configuration is common for component, directive, service and filter. blackboard would create certain constructor function according to configuration. The member of inject, props, events and methods would beccome members of respective instance, you can access it with "this" pointer in instance methods.
 ```
-    // extends parent class, fill in parent name here
+    // extends parent class definition, fill in parent name here
     extends: '',
+
+    // the short names for using namespace
+    using: {
+        [shortName]: [namespace]
+    },
 
     // service injection
     inject: {
         [propName]: [serviceName]
     },
 
-    // 
+    // class properties
     props: {
         [propName]: [serviceName]
     },
+
+    // class events
     events: [
         'eventName'
     ],
+
+    // class methods
     methods: {
         [methodName]: [methodFunction]
     }
@@ -170,7 +192,7 @@ component encapsulates UI control and extends HTML tag to represent application 
 #### sample
 ```
 // suppose to create a component named 'note'
-blackboard.component('note, {
+blackboard.namespace('app').component('note, {
     template: '<div *b-bind="content"></div>',
     props: {
         content: ''
