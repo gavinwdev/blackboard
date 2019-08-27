@@ -220,16 +220,16 @@ namespace(spaceName).directive('b-model', {
 
         if (com == null) {
             ele.addEventListener('change', function (e) {
-                utils.setProperty(binding.scope, binding.text, e.target.value);
+                binding.scope.$setAttr(binding.text, e.target.value);
             });
         }
         else {
             if (utils.isMessenger(com.change)) {
                 com.change.on(function (e, args) {
-                    utils.setProperty(binding.scope, binding.text, args.newvalue);
+                    binding.scope.$setAttr(binding.text, args.newvalue);
                 });
             }
-            throw new Error('Compoent ' + com.$key + 'must define [change] event');
+            throw new Error('Compoent ' + com.$$key + 'must define [change] event');
         }
     },
     onUpdate: function (ele, binding, com) {
@@ -306,20 +306,8 @@ namespace(spaceName).directive('b-repeat', {
                 local: true,
                 template: tpl,
                 props: {},
-                events: {},
-                methods: {},
-                using: currentScope.$$def.using
+                superInstance: currentScope
             };
-
-            utils.forEach(currentScope.$$def.props, function(key){
-                repeatItemConfig.props[key] = currentScope[key];
-            });
-            utils.forEach(currentScope.$$def.events, function(key){
-                repeatItemConfig.events[key] = currentScope[key];
-            });
-            utils.forEach(currentScope.$$def.methods, function(key){
-                repeatItemConfig.methods[key] = currentScope[key];
-            });
 
             repeatItemConfig.props[itemExp] = null;
 
@@ -334,7 +322,7 @@ namespace(spaceName).directive('b-repeat', {
                 currentItems = [];
             }
 
-            currentScope.$watchCollection(currentItems, function(args){
+            currentScope.$watch(itemsExp + '.length', function(args){
                 build(currentItems);
             });
         }

@@ -16,7 +16,7 @@
         </div>
 
         <div class="flex-element relative-container">
-            <note :model="note" *b-repeat="note in notes"></note>
+            <note :model="note" *b-repeat="note in notes" @destroy="removeNote(note)"></note>
         </div>
     </div>
     <script src="../lib/axios.js"></script>

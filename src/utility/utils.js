@@ -320,6 +320,10 @@ function setProperty(obj, key, value, ignoreCase) {
     }
 }
 
+function concat() {
+    return Array.prototype.concat.apply([], arguments);
+}
+
 export {
     forEach,
     some,
@@ -347,5 +351,6 @@ export {
     containsStr,
     hasProperty,
     getProperty,
-    setProperty
+    setProperty,
+    concat
 };

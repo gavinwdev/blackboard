@@ -1,5 +1,7 @@
 import * as utils from '../utility/utils';
 import * as eleUtils from '../utility/ele-utils';
+import { GetPropertyHandler } from '../utility/handler';
+import { Messenger } from '../utility/message';
 import { Parser } from './parser';
 import { compute, parse } from './index';
 
@@ -495,7 +497,7 @@ ElementNode.prototype.getDirective = function (key) {
     });
 
     return result.filter(function (item) {
-        return item.$key === key;
+        return item.$$key === key;
     });
 };
 
@@ -585,17 +587,22 @@ ElementNode.prototype.detect = function () {
 };
 
 ElementNode.prototype.destroy = function () {
-    this.childNodes.map(function (child) {
-        child.destroy();
-    });
-    this.attributes.map(function (attr) {
-        attr.destroy();
-    });
-    this.attributes.length = 0;
-    if (this.component != null) {
+    if (this.component == null) {
+        this.childNodes.forEach(function (child) {
+            child.destroy();
+        });
+    }
+    else {
+        this.component.$$ownerVNode = null;
         this.component.$destroy();
         this.component = null;
     }
+
+    this.attributes.forEach(function (attr) {
+        attr.destroy();
+    });
+    this.attributes.length = 0;
+
     this.removeDomElement();
     this.compileOptions = null;
     this.$destroy();
@@ -650,7 +657,7 @@ AttrNode.prototype.compile = function (options) {
     if (this.isDirective) {
         if (options.containsDirective(this.nodeName)) {
             this.directive = options.createDirective(this.nodeName);
-            this.directive.$bindNode(this);
+            this.directive.$bindVNode(this);
         }
         else {
             throw new Error('directive ' + this.nodeName + ' is not defined');
@@ -695,7 +702,7 @@ AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
     else {
         if (this.directive) {
             scope.$$childDirectives.push(this.directive);
-            this.directive.$bindValue(this.binding);
+            this.directive.$setBinding(this.binding);
         }
         else if (ownerComponent != null && ownerComponent.$hasAttr(this.nodeName)) {
             ownerComponent.$setAttr(this.nodeName, this.binding.compute());
@@ -708,6 +715,10 @@ AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
                 this.ownerElement.setAttribute(this.nodeName, this.binding.compute());
             }
         }
+
+        this.binding.watchProps(function () {
+            self.detect();
+        });
     }
 };
 
@@ -787,7 +798,14 @@ TextNode.prototype.compile = function () {
 };
 
 TextNode.prototype.link = function (scope) {
+    var self = this;
+
     this.binding.setScope(scope);
+
+    this.binding.watchProps(function(){
+        self.detect();
+    });
+
     return this.render(this.binding.compute());
 };
 
@@ -853,6 +871,12 @@ function ExpNode(text) {
     this.oldValue = null;
 }
 
+ExpNode.prototype.getProps = function(scope, options) {
+    var props = [];
+    compute(this.text, new Proxy(scope, new GetPropertyHandler(props, '', true)), options);
+    return props;
+};
+
 ExpNode.prototype.compute = function (scope, options) {
     this.oldValue = this.value;
     this.value = compute(this.text, scope, options);
@@ -862,14 +886,21 @@ ExpNode.prototype.detect = function () {
     return this.value !== this.oldValue;
 };
 
+ExpNode.prototype.destroy = function(){
+    this.value = null;
+    this.oldValue = null;
+    this.props = null;
+};
+
 function Binding() {
     this.scope = null;
     this.text = '';
     this.isExp = false;
-    this.watchers = [];
+    this.segments = [];
     this.rightStr = '';
     this.output = false;
     this.value = null;
+    this.change = new Messenger();
 }
 
 Binding.prototype.setScope = function (value) {
@@ -889,7 +920,7 @@ Binding.prototype.bind = function (text, isExp) {
     this.isExp = isExp;
 
     if (isExp) {
-        this.watchers.push({
+        this.segments.push({
             exp: new ExpNode(text),
             leftStr: ''
         });
@@ -901,7 +932,7 @@ Binding.prototype.bind = function (text, isExp) {
     var match = pattern.exec(text);
 
     while (match != null) {
-        this.watchers.push({
+        this.segments.push({
             index: match.index,
             exp: new ExpNode(match[1]),
             leftStr: text.substring(lastIndex, match.index)
@@ -910,27 +941,27 @@ Binding.prototype.bind = function (text, isExp) {
         match = pattern.exec(text);
     }
 
-    if (this.watchers.length > 0 && lastIndex < text.length) {
+    if (this.segments.length > 0 && lastIndex < text.length) {
         this.rightStr = text.substring(lastIndex);
     }
 };
 
 Binding.prototype.compute = function (options) {
-    if (this.watchers.length === 0) {
+    var self = this;
+
+    if (this.segments.length === 0) {
         this.value = this.text;
     }
-    else{
-        var self = this;
-
-        if (this.isExp && this.watchers.length === 1) {
-            this.watchers[0].exp.compute(self.scope, options);
-            this.value = this.watchers[0].exp.value;
+    else {
+        if (this.isExp && this.segments.length === 1) {
+            this.segments[0].exp.compute(self.scope, options);
+            this.value = this.segments[0].exp.value;
         }
-        else{
+        else {
             var text = '';
-            this.watchers.forEach(function (watcher) {
-                watcher.exp.compute(self.scope, options);
-                text += (watcher.leftStr + watcher.exp.value);
+            this.segments.forEach(function (segment) {
+                segment.exp.compute(self.scope, options);
+                text += (segment.leftStr + segment.exp.value);
             });
             this.value = text + this.rightStr;
         }
@@ -939,18 +970,43 @@ Binding.prototype.compute = function (options) {
     return this.value;
 };
 
+Binding.prototype.watchProps = function(action) {
+    if (this.output) {
+        return;
+    }
+
+    var self = this, props = [];
+
+    this.segments.forEach(function (segment) {
+        props = props.concat(segment.exp.getProps(self.scope));
+    });
+
+    props.forEach(function (prop) {
+        self.scope.$watch(prop, function () {
+            self.change.fire();
+        });
+    });
+
+    if (action != null) {
+        self.change.on(action);
+    }
+};
+
 Binding.prototype.detect = function (options) {
     if (this.output) {
         return false;
     }
     var self = this;
     this.compute();
-    return this.watchers.some(function (watcher) {
-        return watcher.exp.detect(self.scope, options);
+    return this.segments.some(function (segment) {
+        return segment.exp.detect(self.scope, options);
     });
 };
 
 Binding.prototype.destroy = function () {
+    this.segments.forEach(function(segment){
+        segment.exp.destroy();
+    });
     this.scope = null;
 };
 

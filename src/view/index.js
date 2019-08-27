@@ -5,7 +5,6 @@ import Component from './component';
 import Directive from './directive';
 import Filter from './filter';
 import Service from './service';
-import { extendAndWatchProps } from './watch';
 
 function namespace(ns) {
     return {
@@ -42,25 +41,7 @@ function namespace(ns) {
 function component(name, def) {
     return injector.buildConstructor(name, def, {
         contractType: typeConst.component,
-        superClass: Component,
-        getConstructor: function () {
-            return function constructor() {
-                var self = this;
-                this.$onCreating();
-                if(utils.isFunction(constructor.super)){
-                    constructor.super.call(this);
-                }
-                // create properties
-                if (utils.isObject(this.$$def.props)) {
-                    this.$$trackers.push(extendAndWatchProps(self, utils.copy(true, this.$$def.props)));
-                }
-                if (utils.isArray(this.$$def.events)) {
-                    this.$$def.events.forEach(function (e) {
-                        self[e] = new Messenger();
-                    });
-                }
-            };
-        }
+        superClass: Component
     });
 }
 

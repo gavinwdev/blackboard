@@ -97,11 +97,11 @@ Injector.prototype.contains = function (contractType, contractName, ignoreCase) 
 };
 
 Injector.prototype.containsComponent = function (contractName) {
-    return this.contains(typeConst.component, contractName, true)
+    return this.contains(typeConst.component, contractName, true);
 };
 
 Injector.prototype.containsDirective = function (contractName) {
-    return this.contains(typeConst.directive, contractName, true)
+    return this.contains(typeConst.directive, contractName, true);
 };
 
 Injector.prototype.get = function (contractType, contractName, ignoreCase) {
@@ -186,7 +186,7 @@ Injector.prototype.createComponent = function (constructor) {
         constructor = this.getComponent(constructor);
     }
     var instance = new constructor();
-    instance.$onCreated();
+    instance.$onInit();
     return instance;
 };
 
@@ -195,7 +195,7 @@ Injector.prototype.createDirective = function (constructor) {
         constructor = this.getDirective(constructor);
     }
     var instance = new constructor();
-    instance.$onCreated();
+    instance.$onInit();
     return instance;
 };
 
@@ -204,7 +204,7 @@ Injector.prototype.createFilter = function (constructor) {
         constructor = this.getFilter(constructor);
     }
     var instance = new constructor();
-    instance.$onCreated();
+    instance.$onInit();
     return instance;
 };
 
@@ -227,7 +227,7 @@ Injector.prototype.createService = function (constructor) {
 
     if (!instance) {
         instance = new constructor();
-        instance.$onCreated();
+        instance.$onInit();
         services.push(instance);
     }
 
@@ -258,7 +258,6 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
     else {
         constructor = function constructor() {
             var self = this;
-            this.$onCreating();
             if (utils.isFunction(constructor.super)) {
                 constructor.super.call(this);
             }
@@ -277,7 +276,11 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
         utils.inherit(constructor, options.superClass);
     }
 
-    constructor.prototype.$key = contractName;
+    if(utils.isObject(def.superInstance) && (def.superInstance instanceof options.superClass)) {
+        constructor.prototype = utils.object(def.superInstance);
+    }
+
+    constructor.prototype.$$key = contractName;
 
     // apply properties and methods
     if (utils.isString(def.extends)) {
@@ -335,6 +338,16 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
     }
 
     return constructor;
+};
+
+Injector.prototype.injectServices = function (instance) {
+    var self = this;
+
+    if (utils.isObject(instance.$$def.inject)) {
+        utils.forEach(instance.$$def.inject, function (key, value) {
+            instance[key] = self.createService(value);
+        });
+    }
 };
 
 export { typeConst, Injector, injector };

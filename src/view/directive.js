@@ -7,29 +7,21 @@ export default function Directive() {
     this.output = false;
 }
 
-Directive.prototype.$onCreating = function () {
-    if (utils.isFunction(this.$$def.onCreating)) {
-        this.$$def.onCreating.call(this);
-    }
-};
-
-Directive.prototype.$onCreated = function () {
+Directive.prototype.$onInit = function () {
     var self = this;
-    if (utils.isObject(this.$$def.inject)) {
-        utils.forEach(this.$$def.inject, function (key, value) {
-            self[key] = injector.createService(value);
-        });
-    }
-    if (utils.isFunction(this.$$def.onCreated)) {
-        this.$$def.onCreated.call(this);
+
+    injector.injectServices(this);
+
+    if (utils.isFunction(this.$$def.onInit)) {
+        this.$$def.onInit.call(this);
     }
 };
 
-Directive.prototype.$bindNode = function (node) {
-    this.$$vnode = node;
+Directive.prototype.$bindVNode = function (vnode) {
+    this.$$vnode = vnode;
 };
 
-Directive.prototype.$bindValue = function (binding) {
+Directive.prototype.$setBinding = function (binding) {
     this.$$binding = binding;
 };
 
@@ -65,6 +57,7 @@ Directive.prototype.$destroy = function () {
     if (utils.isFunction(this.$$def.onDestroy)) {
         this.$$def.onDestroy.call(this);
     }
+
     this.$$binding = null;
     this.$$vnode = null;
 };

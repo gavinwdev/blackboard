@@ -1,9 +1,10 @@
-import {isMessenger} from '../utility';
+import { isMessenger } from '../utility';
 import * as utils from '../utility/utils';
 import * as eleUtils from '../utility/ele-utils';
+import { PropertyChangeSubject } from '../utility/subject';
+import { SetPropertyHandler } from '../utility/handler';
 import { injector } from './injector';
-import {compile} from '../parser';
-import { validate, watch, watchCollection, watchObject } from './watch';
+import { compile } from '../parser';
 
 export default function Component() {
     this.$$vnodes = null;
@@ -12,8 +13,53 @@ export default function Component() {
     this.$$childComponents = [];
     this.$$childDirectives = [];
     this.$$detectTimeout = null;
-    this.$$trackers = [];
+    this.$$propChanged = new PropertyChangeSubject();
 }
+
+Component.prototype.$onInit = function () {
+    Object.defineProperty(this, 'proxy', {
+        enumerable: false,
+        configurable: false,
+        get: function () {
+            return new Proxy(this, new SetPropertyHandler(this.$$propChanged, '', true));
+        }
+    });
+
+    injector.injectServices(this);
+
+    if (this.$$def.superInstance != null) {
+        this.$$propChanged.parentSubject = this.$$def.superInstance.$$propChanged;
+    }
+
+    if (utils.isFunction(this.$$def.onInit)) {
+        this.$$def.onInit.call(this);
+    }
+};
+
+Component.prototype.$hasAttr = function (prop) {
+    return utils.hasProperty(this.$$def.props, prop, true);
+};
+
+Component.prototype.$setAttr = function (prop, value) {
+    utils.setProperty(this.proxy, prop, value, true);
+
+    if (utils.isFunction(this.$$def.onChanges)) {
+        this.$$def.onChanges.call(this, prop, value);
+    }
+};
+
+Component.prototype.$hasEvent = function (e) {
+    return utils.containsStr(this.$$def.events, e, true);
+};
+
+Component.prototype.$listen = function (e, fn) {
+    var messenger = utils.getProperty(this, e, true);
+    if (isMessenger(messenger)) {
+        messenger.on(fn);
+        return;
+    }
+    throw new Error(e + ' is not a event');
+};
 
 Component.prototype.$getTemplate = function (sync) {
     var self = this;
@@ -101,15 +147,16 @@ Component.prototype.$clearVNodes = function () {
 };
 
 Component.prototype.$render = function (sync) {
-    var self = this;
+    var self = this, fragment = null;
 
     if (sync) {
         if (this.$hasVNodes()) {
-            return this.$fromVNodes();
+            fragment = this.$fromVNodes();
+        }
+        else {
+            fragment = compile(this.$getTemplate(sync), this.$makeCompileOptions())(this);
         }
 
-        var compileOptions = this.$makeCompileOptions();
-        var fragment = compile(self.$getTemplate(sync), compileOptions)(self);
         return fragment;
     }
 
@@ -119,21 +166,19 @@ Component.prototype.$render = function (sync) {
         }
         else {
             self.$getTemplate().then(function (html) {
-                var compileOptions = self.$makeCompileOptions();
-                var fragment = compile(html, compileOptions)(self);
+                fragment = compile(html, self.$makeCompileOptions())(self);
                 resolve(fragment);
             });
         }
     });
 };
 
-Component.prototype.$rerender = function (sync) {
+Component.prototype.$refresh = function (sync) {
     this.$clearVNodes();
-    this.$render(sync);
-
+    return this.$render(sync);
 };
 
-Component.prototype.$mount = function (idOrElement) {
+Component.prototype.$mount = function (idOrElement, sync) {
     var self = this, element;
 
     if (utils.isString(idOrElement)) {
@@ -145,11 +190,22 @@ Component.prototype.$mount = function (idOrElement) {
 
     eleUtils.clearChildNodes(element);
 
-    this.$render().then(function (ele) {
-        self.$onMounting();
-        element.appendChild(ele);
-        self.$onMounted();
-    });
+    if (sync) {
+        element.appendChild(this.$render(sync));
+        self.$afterViewInit();
+    }
+    else {
+        this.$render(sync).then(function (ele) {
+            element.appendChild(ele);
+            self.$afterViewInit();
+        });
+    }
+};
+
+Component.prototype.$afterViewInit = function () {
+    if (utils.isFunction(this.$$def.afterViewInit)) {
+        this.$$def.afterViewInit.call(this);
+    }
 };
 
 Component.prototype.$unmount = function () {
@@ -168,158 +224,55 @@ Component.prototype.$detect = function () {
     var self = this;
     self.$$detectTimeout = setTimeout(function () {
         self.$$detectTimeout = null;
-        self.$onUpdating();
         self.$$vnodes.forEach(function (vnode) {
             vnode.detect();
         });
-        self.$onUpdated();
     });
 };
 
-Component.prototype.$destroy = function () {
-    this.$onDestroying();
-    this.$clearVNodes();
-    this.$onDestroyed();
+Component.prototype.$validate = function(prop, action) {
+   
 };
 
-Component.prototype.$update = function () {
-    if (utils.isFunction(this.$$def.onUpdate)) {
-        this.$$def.onUpdate.call(this);
-    }
-};
+Component.prototype.$watch = function(prop, action, isRegex){
+    this.$$propChanged.on(prop, action, isRegex);
 
-Component.prototype.$hasAttr = function (prop) {
-    return utils.hasProperty(this.$$def.props, prop, true);
-};
-
-Component.prototype.$setAttr = function (prop, value) {
-    utils.setProperty(this, prop, value, true);
-};
-
-Component.prototype.$hasEvent = function (e) {
-    return utils.containsStr(this.$$def.events, e, true);
-};
-
-Component.prototype.$listen = function (e, fn) {
-    var messenger = utils.getProperty(this, e, true);
-    if (isMessenger(messenger)) {
-        messenger.on(fn);
-        return;
-    }
-    throw new Error(e + ' is not a event');
-};
-
-Component.prototype.$onCreating = function () {
-    if (utils.isFunction(this.$$def.onCreating)) {
-        this.$$def.onCreating.call(this);
-    }
-};
-
-Component.prototype.$onCreated = function () {
-    var self = this;
-    if (utils.isObject(this.$$def.inject)) {
-        utils.forEach(this.$$def.inject, function (key, value) {
-            self[key] = injector.createService(value);
-        });
-    }
-    if (utils.isFunction(this.$$def.onCreated)) {
-        this.$$def.onCreated.call(this);
-    }
-};
-
-Component.prototype.$onUpdating = function () {
-    if (utils.isFunction(this.$$def.onUpdating)) {
-        this.$$def.onUpdating.call(this);
-    }
-};
-
-Component.prototype.$onUpdated = function () {
-    if (utils.isFunction(this.$$def.onUpdated)) {
-        this.$$def.onUpdated.call(this);
-    }
-};
-
-Component.prototype.$onMounting = function () {
-    if (utils.isFunction(this.$$def.onMounting)) {
-        this.$$def.onMounting.call(this);
-    }
-};
-
-Component.prototype.$onMounted = function () {
-    if (utils.isFunction(this.$$def.onMounted)) {
-        this.$$def.onMounted.call(this);
-    }
-};
-
-Component.prototype.$onDestroying = function () {
-    if (utils.isFunction(this.$$def.onDestroying)) {
-        this.$$def.onDestroying.call(this);
-    }
-    if(this.$$detectTimeout){
-        clearTimeout(this.$$detectTimeout);
-    }
-    this.$$trackers.forEach(function(tracker){
-        tracker.destroy();
-    });
-};
-
-Component.prototype.$onDestroyed = function () {
-    if (utils.isFunction(this.$$def.onDestroyed)) {
-        this.$$def.onDestroyed.call(this);
-    }
-    this.$unmount();
-    this.$$ownerVNode = null;
-    this.$$parentComponent = null;
-    this.$$childComponents = null;
-    this.$$childDirectives = null;
-    this.$$trackers = null;
-};
-
-Component.prototype.$track = function (tracker) {
-    var self = this;
-    this.$$trackers.push(tracker);
-    return function () {
-        tracker.destroy();
-        self.$$trackers = self.$$trackers.filter(function (item) {
-            return item !== tracker;
-        });
+    return function(){
+        this.$$propChanged.off(prop, action, isRegex);
     };
 };
 
-Component.prototype.$validate = function(prop, action, deep) {
-    var objProp = prop.split('.').pop().join('.'), obj = this;
+Component.prototype.$removeChild = function (child) {
+    var index = this.$$childComponents.indexOf(child);
 
-    if (objProp) {
-        obj = utils.getProperty(this, objProp);
-    }
-
-    if (obj) {
-        return this.$track(validate(obj, prop, action, deep));
-    }
-    else {
-        throw new Error(objProp + ' is undefined');
+    if (index !== -1) {
+        this.$$childComponents.splice(index, 1);
     }
 };
 
-Component.prototype.$watch = function(prop, action, deep){
-    var objProp = prop.split('.').pop().join('.'), obj = this;
-
-    if (objProp) {
-        obj = utils.getProperty(this, objProp);
+Component.prototype.$destroy = function () {
+    if (this.$$parentComponent != null) {
+        this.$$parentComponent.$removeChild(this);
     }
 
-    if (obj) {
-        return this.$track(watch(obj, prop, action, deep));
+    if (this.$$detectTimeout) {
+        clearTimeout(this.$$detectTimeout);
     }
-    else {
-        throw new Error(objProp + ' is undefined');
+
+    this.$clearVNodes();
+    this.$unmount();
+    this.$$propChanged.destroy();
+    this.$$parentComponent = null;
+    this.$$childComponents = null;
+    this.$$childDirectives = null;
+
+    if (utils.isFunction(this.$$def.onDestroy)) {
+        this.$$def.onDestroy.call(this);
     }
-};
 
-Component.prototype.$watchCollection = function(arr, action, deep){
-    return this.$track(watchCollection(arr, action, deep));
-};
-
-Component.prototype.$watchObject = function(obj, action, deep){
-    return this.$track(watchObject(obj, action, deep));
+    if (this.$$ownerVNode != null) {
+        this.$$ownerVNode.component = null;
+        this.$$ownerVNode.destroy();
+        this.$$ownerVNode = null;
+    }
 };
