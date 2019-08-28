@@ -209,10 +209,18 @@ Component.prototype.$afterViewInit = function () {
 };
 
 Component.prototype.$unmount = function () {
-    if(this.$hasVNodes()) {
+    if (this.$$ownerVNode != null) {
+        this.$$ownerVNode.$remove();
+        this.$$ownerVNode.removeDomElement();
+    }
+    else if(this.$hasVNodes()) {
         this.$$vnodes.forEach(function (vnode) {
             vnode.removeDomElement();
         });
+    }
+
+    if (this.$$parentComponent != null) {
+        this.$$parentComponent.$removeChild(this);
     }
 };
 
@@ -234,11 +242,11 @@ Component.prototype.$validate = function(prop, action) {
    
 };
 
-Component.prototype.$watch = function(prop, action, isRegex){
-    this.$$propChanged.on(prop, action, isRegex);
+Component.prototype.$watch = function(prop, action){
+    this.$$propChanged.on(prop, action);
 
     return function(){
-        this.$$propChanged.off(prop, action, isRegex);
+        this.$$propChanged.off(prop, action);
     };
 };
 
@@ -251,18 +259,15 @@ Component.prototype.$removeChild = function (child) {
 };
 
 Component.prototype.$destroy = function () {
-    if (this.$$parentComponent != null) {
-        this.$$parentComponent.$removeChild(this);
-    }
+    // unmount component first
+    this.$unmount();
 
     if (this.$$detectTimeout) {
         clearTimeout(this.$$detectTimeout);
     }
 
     this.$clearVNodes();
-    this.$unmount();
     this.$$propChanged.destroy();
-    this.$$parentComponent = null;
     this.$$childComponents = null;
     this.$$childDirectives = null;
 

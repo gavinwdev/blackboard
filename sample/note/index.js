@@ -134,7 +134,7 @@
         onInit: function() {
             var self = this;
 
-            this.$watch('^model\.', function () {
+            this.$watch(/^model\./, function () {
                 self.noteService.save();
             }, true);
         },

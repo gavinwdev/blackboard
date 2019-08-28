@@ -1,44 +1,47 @@
 import * as utils from './utils';
 
-function PropertyChangeSubject(parentSubject){
-    this.plainDict = {};
-    this.regexDict = {};
+function PropertyChangeSubject(parentSubject) {
+    this.plainMap = new Map();
+    this.regexMap = new Map();
     this.parentSubject = parentSubject;
 }
 
-PropertyChangeSubject.prototype.on = function(prop, action, isRegex) {
-    var target = isRegex ? this.regexDict : this.plainDict;
+PropertyChangeSubject.prototype.on = function (prop, action) {
+    var target = utils.isRegExp(prop) ? this.regexMap : this.plainMap;
 
-    if (target[prop] == null) {
-        target[prop] = [];
+    if (!target.has(prop)) {
+        target.set(prop, []);
     }
 
-    target[prop].push(action);
+    target.get(prop).push(action);
 };
 
-PropertyChangeSubject.prototype.off = function(prop, action, isRegex){
-    var target = isRegex ? this.regexDict : this.plainDict;
+PropertyChangeSubject.prototype.off = function (prop, action) {
+    var target = utils.isRegExp(prop) ? this.regexMap : this.plainMap;
 
-    if(target[prop] == null){
+    if (!target.has(prop)) {
         return;
     }
 
-    target[prop] = target[prop].filter(function(item){
-        return item !== action;
-    });
+    var actions = target.get(prop),
+        index = actions.indexOf(action);
+
+    if (index !== -1) {
+        actions.splice(index, 1);
+    }
 };
 
-PropertyChangeSubject.prototype.fire = function(prop, args) {
+PropertyChangeSubject.prototype.fire = function (prop, args) {
     var self = this;
 
-    if (this.plainDict[prop] != null) {
-        this.plainDict[prop].forEach(function (action) {
+    if (this.plainMap.has(prop)) {
+        this.plainMap.get(prop).forEach(function (action) {
             action.call(self, prop, args);
         });
     }
 
-    utils.forEach(this.regexDict, function (pattern, actions) {
-        if (new RegExp(pattern).test(prop)) {
+    this.regexMap.forEach(function (actions, pattern) {
+        if (pattern.test(prop)) {
             actions.forEach(function (action) {
                 action.call(self, prop, args);
             });
@@ -50,9 +53,9 @@ PropertyChangeSubject.prototype.fire = function(prop, args) {
     }
 };
 
-PropertyChangeSubject.prototype.destroy =  function() {
-    this.plainDict = null;
-    this.regexDict = null;
+PropertyChangeSubject.prototype.destroy = function () {
+    this.plainMap.clear();
+    this.regexMap.clear();
     this.parentSubject = null;
 };
 

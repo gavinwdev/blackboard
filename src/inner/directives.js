@@ -322,7 +322,7 @@ namespace(spaceName).directive('b-repeat', {
                 currentItems = [];
             }
 
-            currentScope.$watch(itemsExp + '.length', function(args){
+            currentScope.$watch(itemsExp + '.length', function(){
                 build(currentItems);
             });
         }

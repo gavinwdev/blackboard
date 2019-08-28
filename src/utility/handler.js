@@ -1,12 +1,18 @@
 import { isObject, isArray } from './utils';
 
 function SetPropertyHandler(onchange, parentKey, deepProxy) {
+    this.selfKey = '__self__';
     this.onchange = onchange;
     this.parentKey = parentKey;
     this.deepProxy = deepProxy;
 }
 
 SetPropertyHandler.prototype.get = function (target, key) {
+    // a way to reutrn target object on its proxy object
+    if(key === this.selfKey){
+        return target;
+    }
+
     var value = target[key];
 
     if (this.deepProxy && isObject(value)) {
@@ -17,15 +23,26 @@ SetPropertyHandler.prototype.get = function (target, key) {
 };
 
 SetPropertyHandler.prototype.set = function (target, key, value) {
+    if (this.deepProxy && isObject(value)) {
+        var self = value[this.selfKey];
+
+        // current value is a proxy object returned by this handler.
+        if(self != null){
+            value = self;
+        }
+    }
+
     var oldValue = target[key];
 
-    // todo: need comparison?
-    target[key] = value;
+    // In case push value to array, the old value of length is the same as new value
+    if(oldValue !== value || (isArray(target) && key === 'length')){
+        target[key] = value;
 
-    this.onchange.fire(this.parentKey + key, {
-        oldValue: oldValue,
-        newValue: value
-    });
+        this.onchange.fire(this.parentKey + key, {
+            oldValue: oldValue,
+            newValue: value
+        });
+    }
 
     return true;
 };
