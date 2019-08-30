@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Backup Note</title>
+    <title>Note</title>
     <link rel="stylesheet" type="text/css" href="./style.css" />
     <link rel="stylesheet" type="text/css" href="../css/font-awesome.css" />
 </head>
@@ -10,9 +10,12 @@
 <body>
     <div id="app" class="full-size flex-box flex-column">
         <div class="toolbar flex-box">
-            <button class="fa fa-plus-circle btn" @click="createNote()"></button>
-            <button class="fa fa-save btn" @click="saveNote()"></button>
-            <button class="fa fa-remove btn" @click="clearNote()"></button>
+            <span class="title">Note</span>
+            <div class="flex-box flex-element btns">
+                <button class="fa fa-plus-circle btn" @click="createNote()" title="Create"></button>
+                <button class="fa fa-save btn" @click="saveNote()" title="Save"></button>
+                <button class="fa fa-remove btn" @click="clearNote()" title="Clear"></button>
+            </div>
         </div>
 
         <div class="flex-element relative-container">

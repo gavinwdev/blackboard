@@ -44,6 +44,7 @@ body{
 .btn{
     border: none;
     background: none;
+    cursor: pointer;
 }
 
 .btn:focus{
@@ -54,11 +55,19 @@ body{
 {
     height: 24px;
     background-color: #c0c0c038;
-    justify-content: flex-end;
     padding: 2px 10px;
 }
 
-.toolbar.btn{
+.toolbar .title{
+    font-weight: bold;
+    color: darkblue;
+}
+
+.toolbar .btns{
+    justify-content: flex-end;
+}
+
+.toolbar .btn{
     margin:0 4px;
 }
 
@@ -77,6 +86,7 @@ body{
     border: solid 1px silver;
     background-color: lightyellow;
     font-size: 14px;
+    box-shadow: 2px 2px 10px #928f8f;
 }
 
 .note-tlb{
