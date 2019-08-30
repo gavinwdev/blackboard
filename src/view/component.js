@@ -36,6 +36,10 @@ Component.prototype.$onInit = function () {
     }
 };
 
+Component.prototype.$bindVNode = function (vnode) {
+    this.$$ownerVNode = vnode;
+};
+
 Component.prototype.$hasAttr = function (prop) {
     return utils.hasProperty(this.$$def.props, prop, true);
 };
@@ -213,7 +217,7 @@ Component.prototype.$unmount = function () {
         this.$$ownerVNode.$remove();
         this.$$ownerVNode.removeDomElement();
     }
-    else if(this.$hasVNodes()) {
+    else if (this.$hasVNodes()) {
         this.$$vnodes.forEach(function (vnode) {
             vnode.removeDomElement();
         });
@@ -221,6 +225,7 @@ Component.prototype.$unmount = function () {
 
     if (this.$$parentComponent != null) {
         this.$$parentComponent.$removeChild(this);
+        this.$$parentComponent = null;
     }
 };
 
@@ -239,14 +244,24 @@ Component.prototype.$detect = function () {
 };
 
 Component.prototype.$validate = function(prop, action) {
-   
+    var self = this;
+
+    this.$$propChanged.on(prop, action, {
+        beforeChanged: true
+    });
+
+    return function () {
+        self.$$propChanged.off(prop, action);
+    };
 };
 
 Component.prototype.$watch = function(prop, action){
+    var self = this;
+
     this.$$propChanged.on(prop, action);
 
     return function(){
-        this.$$propChanged.off(prop, action);
+        self.$$propChanged.off(prop, action);
     };
 };
 
@@ -255,12 +270,17 @@ Component.prototype.$removeChild = function (child) {
 
     if (index !== -1) {
         this.$$childComponents.splice(index, 1);
+        child.$$parentComponent = null;
     }
 };
 
-Component.prototype.$destroy = function () {
-    // unmount component first
+Component.prototype.$dispose = function (isFromVNode) {
+    // remove virtual node first in case it triggers parent component destroy
     this.$unmount();
+
+    if (utils.isFunction(this.$$def.onDestroy)) {
+        this.$$def.onDestroy.call(this);
+    }
 
     if (this.$$detectTimeout) {
         clearTimeout(this.$$detectTimeout);
@@ -268,16 +288,21 @@ Component.prototype.$destroy = function () {
 
     this.$clearVNodes();
     this.$$propChanged.destroy();
-    this.$$childComponents = null;
-    this.$$childDirectives = null;
 
-    if (utils.isFunction(this.$$def.onDestroy)) {
-        this.$$def.onDestroy.call(this);
+    if (isFromVNode) {
+        this.$$ownerVNode = null;
     }
 
+    this.$$childComponents = null;
+    this.$$childDirectives = null;
+};
+
+Component.prototype.$destroy = function () {
+    this.$dispose();
+
+    // destroy virtual node in the end because it may binds logic about destroy
     if (this.$$ownerVNode != null) {
-        this.$$ownerVNode.component = null;
-        this.$$ownerVNode.destroy();
+        this.$$ownerVNode.dispose(true);
         this.$$ownerVNode = null;
     }
 };

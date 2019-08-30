@@ -125,18 +125,18 @@
             test: null
         },
         methods: {
-            onMouseDown: function() {
+            onMouseDown: function () {
                 if (!this.noteService.isMaxZIndex(this.model.zIndex)) {
                     this.proxy.model.zIndex = this.noteService.nextZIndex();
                 }
             }
         },
-        onInit: function() {
+        onInit: function () {
             var self = this;
 
             this.$watch(/^model\./, function () {
                 self.noteService.save();
-            }, true);
+            });
         },
         onDestroy: function () {
             this.destroy.fire();

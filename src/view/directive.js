@@ -53,11 +53,23 @@ Directive.prototype.$update = function (ele, com) {
     }
 };
 
-Directive.prototype.$destroy = function () {
+Directive.prototype.$dispose = function (isFromVNode) {
     if (utils.isFunction(this.$$def.onDestroy)) {
         this.$$def.onDestroy.call(this);
     }
 
+    if(isFromVNode){
+        this.$$vnode = null;
+    }
+
     this.$$binding = null;
-    this.$$vnode = null;
+};
+
+Directive.prototype.$destroy = function () {
+    this.$dispose();
+
+    if(this.$$vnode != null){
+        this.$$vnode.dispose(true);
+        this.$$vnode = null;
+    }
 };

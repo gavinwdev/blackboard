@@ -4,8 +4,6 @@ body{
 
 
 
-
-
 .flex-box{
     display: flex;
 }
@@ -82,7 +80,7 @@ body{
 }
 
 .note-tlb{
-    height: 10px;
+    height: 16px;
     justify-content: flex-end;
 }
 
@@ -92,6 +90,7 @@ body{
     overflow: hidden;
     background: transparent;
     padding: 4px;
+    font-family: initial;
 }
 
 .note-content:focus{
@@ -99,8 +98,8 @@ body{
 }
 
 .note-resize{
-    width: 10px;
-    height: 10px;
+    width: 16px;
+    height: 16px;
     position: absolute;
     right: 0;
     bottom: 0;

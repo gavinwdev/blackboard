@@ -374,6 +374,7 @@ function ElementNode(name) {
     this.component = null;
     this.selfClosed = false;
     this.compileOptions = null;
+    this.isComponent = false;
 }
 
 ElementNode.prototype.$pushAttribute = function (attr) {
@@ -503,14 +504,11 @@ ElementNode.prototype.getDirective = function (key) {
 
 ElementNode.prototype.compile = function (options) {
     this.compileOptions = options;
-    if (options.containsComponent(this.nodeName)) {
-        this.component = options.createComponent(this.nodeName);
-        this.component.$$ownerVNode = this;
-    }
     this.attributes.forEach(function (attr) {
         attr.compile(options);
     });
-    if (this.component == null) {
+    this.isComponent = options.containsComponent(this.nodeName);
+    if (!this.isComponent) {
         this.childNodes.forEach(function (child) {
             child.compile(options);
         });
@@ -542,6 +540,11 @@ ElementNode.prototype.link = function (scope) {
 
     self.scope = scope;
     self.element = document.createElement(self.nodeName);
+
+    if(this.isComponent){
+        this.component = this.compileOptions.createComponent(this.nodeName);
+        this.component.$bindVNode(this);
+    }
 
     if (self.component == null) {
         this.attributes.forEach(function (attr) {
@@ -586,26 +589,33 @@ ElementNode.prototype.detect = function () {
     }
 };
 
-ElementNode.prototype.destroy = function () {
+ElementNode.prototype.dispose = function (isFromComponent) {
     if (this.component == null) {
         this.childNodes.forEach(function (child) {
             child.destroy();
         });
     }
-    else {
-        this.component.$$ownerVNode = null;
-        this.component.$destroy();
+    else if(isFromComponent){
         this.component = null;
     }
 
     this.attributes.forEach(function (attr) {
         attr.destroy();
     });
-    this.attributes.length = 0;
 
+    this.attributes.length = 0;
     this.removeDomElement();
     this.compileOptions = null;
     this.$destroy();
+};
+
+ElementNode.prototype.destroy = function () {
+    if(this.component != null) {
+        this.component.$dispose(true);
+        this.component = null;
+    }
+
+    this.dispose();
 };
 
 ElementNode.prototype.getDomElement = function () {
@@ -632,6 +642,7 @@ function AttrNode(name, value) {
     this.ownerVElement = null;
     this.ownerElement = null;
     this.ownerComponent = null;
+    this.compileOptions = null;
     this.binding = new Binding();
 }
 
@@ -645,7 +656,7 @@ AttrNode.prototype.setValue = function (value) {
 };
 
 AttrNode.prototype.compile = function (options) {
-    this.options = options;
+    this.compileOptions = options;
     this.isEvent = this.nodeName.startsWith('@');
     this.isBinding = this.nodeName.startsWith(':');
     this.isDirective = this.nodeName.startsWith('*');
@@ -653,18 +664,19 @@ AttrNode.prototype.compile = function (options) {
         this.nodeName = this.nodeName.substr(1);
     }
     this.isDomEvent = utils.contains(domEvents, this.nodeName);
+    this.binding.setOutput(this.isEvent);
+    this.binding.bind(this.nodeValue, this.isEvent || this.isBinding || this.isDirective);
 
     if (this.isDirective) {
         if (options.containsDirective(this.nodeName)) {
             this.directive = options.createDirective(this.nodeName);
             this.directive.$bindVNode(this);
+            this.binding.setOutput(this.directive.output);
         }
         else {
             throw new Error('directive ' + this.nodeName + ' is not defined');
         }
     }
-    this.binding.setOutput(this.isEvent || (this.directive && this.directive.output));
-    this.binding.bind(this.nodeValue, this.isEvent || this.isBinding || this.isDirective);
 };
 
 AttrNode.prototype.link = function (scope, ownerElement, ownerComponent) {
@@ -772,17 +784,26 @@ AttrNode.prototype.getInnerTpl = function () {
     return this.orgNodeName + (this.nodeValue == null ? '' : ('=' + this.quote + this.nodeValue + this.quote));
 };
 
-AttrNode.prototype.destroy = function(){
-    if(this.directive != null){
-        this.directive.$destroy();
+AttrNode.prototype.dispose = function (isFromDirective) {
+    if(isFromDirective){
         this.directive = null;
     }
+
     this.binding.destroy();
     this.binding = null;
     this.ownerVElement = null;
     this.ownerElement = null;
     this.ownerComponent = null;
     this.$destroy();
+};
+
+AttrNode.prototype.destroy = function(){
+    if(this.directive != null){
+        this.directive.$dispose(true);
+        this.directive = null;
+    }
+
+    this.dispose();
 };
 
 utils.inherit(TextNode, VNode);

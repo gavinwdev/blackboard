@@ -176,6 +176,10 @@ function isArray(obj) {
     return obj instanceof Array;
 }
 
+function isMap(obj) {
+    return obj instanceof Map;
+}
+
 function isObject(value) {
     return value !== null && typeof value === 'object';
 }
