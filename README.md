@@ -5,11 +5,11 @@ blackboard.js lets you extend HTML’s syntax to express application’s __compo
 
 # compatibility
 
-It uses Proxy and Promise class defined in the ES6 standard, so it only works on browsers which support these feature.
+It is base on ES6 and using Promise, Proxy and Map Object, so it only works on browsers which supports these ES6 features.
 
 # dependency
 
-Currently it has dependency for axio.js to load remote template, but plan to remove it later.
+It has dependency for axio.js to handle Http request, such as load remote template.
 
 # two-way binding
 
@@ -88,7 +88,7 @@ this.proxy.model = 'new value';
 ```
 window.onload = function(){
 
-    blackboard.component('note', {
+    blackboard.namespace('app').component('note', {
         template: '<div *b-bind="content"></div>',
         props: {
             content: ''
@@ -107,11 +107,40 @@ window.onload = function(){
     };
 
     blackboard.bootstrap('app', scope);
-
 };
 ```
 
 # document
+## namespace
+blackboard.js organizes component, directive, filter and service by namespace, the key under same namespace should be unique, different namespaces can have same key.
+```
+blackboard.namespace('lib1').component('note', {
+    // definition
+});
+
+blackboard.namespace('lib1').directive('noteDir', {
+    // definition
+});
+
+blackboard.namespace('lib1').service('noteService', {
+    // definition
+});
+
+blackboard.namespace('lib1').filter('noteFilter', {
+    // definition
+});
+```
+
+```
+<note></note> // without namespace
+<lib1.note></lib1.note> // with namespace
+```
+
+
+
+
+
+
 ## common
 The following configuration is common for component, directive, service and filter. blackboard would create certain constructor function according to configuration. The member of inject, props, events and methods would beccome members of respective instance, you can access it with "this" pointer in instance methods.
 ```
@@ -141,6 +170,16 @@ The following configuration is common for component, directive, service and filt
     // class methods
     methods: {
         [methodName]: [methodFunction]
+    },
+
+    // initialization logic after instance created
+    onInit: function(){
+
+    },
+
+    // destroy logic before instance destroyed
+    onDestroy: function(){
+
     }
 
 ```
@@ -161,27 +200,15 @@ component encapsulates UI control and extends HTML tag to represent application 
     },
 
     // lifecycle hooks
-    onCreating: function(){
+    onInit: function(){
 
     },
-    onCreated: function(){
-
+    onChanges: function(){
+        // component bindings is changed
     },
-    onUpdating: function(){
-
-    },
-    onUpdated: function(){
-
-    },
-    onMounting: function(){
-
-    },
-    onMounted: function(){
-
-    },
-    onDestroying: function(){
-
-    },
+    afterViewInit: function(){
+        // component view is ready
+    }
     onDestroyed: function(){
 
     }
@@ -215,10 +242,7 @@ directive encapsulates view logic about operating virtual node or HTML DOM eleme
     output: false,
 
     // lifecycle hooks
-    onCreating: function(ele, binding, component){
-        
-    },
-    onCreated: function(ele, binding, component){
+    onInit: function(ele, binding, component){
         
     },
     onCompile: function(ele, binding, component){
@@ -243,7 +267,7 @@ directive encapsulates view logic about operating virtual node or HTML DOM eleme
 #### sample
 ```
 // suppose to create a directive to set inner text
-blackboard.directive('bind-text' , {
+blackboard.namespace('app').directive('bind-text' , {
     onInsert: function(ele, binding, component){
         ele.innerText = binding.compute();
     },
@@ -260,7 +284,7 @@ binding.compute();
 
 shortening
 ```
-blackboard.directive('bind-text' ,function(ele, binding){
+blackboard.namespace('app').directive('bind-text' ,function(ele, binding){
     ele.innerText = binding.compute();
 });
 ```

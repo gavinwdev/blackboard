@@ -1,10 +1,9 @@
 (function(global) {
     'use strict';
 
-    var blackboard = global.blackboard,
-        spaceName = 'app.note';
+    var noteApp = 'app.note';
 
-    blackboard.namespace(spaceName).component('test-embed', {
+    blackboard.namespace(noteApp).component('test-embed', {
         template: '<div *b-embed></div>',
         props: {
             name: 'embed'
@@ -14,7 +13,7 @@
         }
     });
 
-    blackboard.namespace(spaceName).service('noteService', {
+    blackboard.namespace(noteApp).service('noteService', {
         props: {
             zIndex: 0,
             notes: []
@@ -75,7 +74,7 @@
         }
     });
 
-    blackboard.namespace(spaceName).directive('note-pan', function(ele, binding) {
+    blackboard.namespace(noteApp).directive('note-pan', function(ele, binding) {
         var scope = binding.scope;
         var hammerTime = new Hammer(ele);
 
@@ -91,7 +90,7 @@
         });
     });
 
-    blackboard.namespace(spaceName).directive('note-resize', function(ele, binding) {
+    blackboard.namespace(noteApp).directive('note-resize', function(ele, binding) {
         var scope = binding.scope;
         var hammerTime = new Hammer(ele);
 
@@ -107,7 +106,7 @@
         });
     });
 
-    blackboard.namespace(spaceName).component('note', {
+    blackboard.namespace(noteApp).component('note', {
         templateUrl: './note.html',
         inject: {
             noteService: 'noteService'
