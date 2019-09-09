@@ -1,7 +1,7 @@
 import { isMessenger } from '../utility';
 import * as utils from '../utility/utils';
 import * as eleUtils from '../utility/ele-utils';
-import { PropertyChangeSubject } from '../utility/subject';
+import { ObjectPropertyChangeSubject } from '../utility/subject';
 import { SetPropertyHandler } from '../utility/handler';
 import { injector } from './injector';
 import { compile } from '../parser';
@@ -13,7 +13,7 @@ export default function Component() {
     this.$$childComponents = [];
     this.$$childDirectives = [];
     this.$$detectTimeout = null;
-    this.$$propChanged = new PropertyChangeSubject();
+    this.$$propChanged = new ObjectPropertyChangeSubject();
 }
 
 Component.prototype.$onInit = function () {
@@ -28,7 +28,7 @@ Component.prototype.$onInit = function () {
     injector.injectServices(this);
 
     if (this.$$def.superInstance != null) {
-        this.$$propChanged.parentSubject = this.$$def.superInstance.$$propChanged;
+        this.$$propChanged.setParentVmPropertyChangeSubject(this.$$def.superInstance.$$propChanged.getVmPropertyChangeSubject());
     }
 
     if (utils.isFunction(this.$$def.onInit)) {
@@ -246,22 +246,44 @@ Component.prototype.$detect = function () {
 Component.prototype.$validate = function(prop, action) {
     var self = this;
 
-    this.$$propChanged.on(prop, action, {
+    this.$$propChanged.onVm(prop, action, {
         beforeChanged: true
     });
 
     return function () {
-        self.$$propChanged.off(prop, action);
+        self.$$propChanged.offVm(prop, action);
+    };
+};
+
+Component.prototype.$validateProp = function(obj, prop, action) {
+    var self = this;
+
+    this.$$propChanged.on(obj, prop, action, {
+        beforeChanged: true
+    });
+
+    return function () {
+        self.$$propChanged.off(obj, prop, action);
     };
 };
 
 Component.prototype.$watch = function(prop, action){
     var self = this;
 
-    this.$$propChanged.on(prop, action);
+    this.$$propChanged.onVm(prop, action);
 
     return function(){
-        self.$$propChanged.off(prop, action);
+        self.$$propChanged.offVm(prop, action);
+    };
+};
+
+Component.prototype.$watchProp = function(obj, prop, action){
+    var self = this;
+
+    this.$$propChanged.on(obj, prop, action);
+
+    return function(){
+        self.$$propChanged.off(obj, prop, action);
     };
 };
 

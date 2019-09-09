@@ -1,8 +1,6 @@
 window.onload = function(){
 
-    var demo = 'demo';
-
-    blackboard.namespace(demo).component('note', {
+    blackboard.component('note', {
         template: '<div *b-bind="content"></div>',
         props: {
             content: ''

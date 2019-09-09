@@ -1,9 +1,10 @@
 (function(global) {
     'use strict';
 
-    var noteApp = 'app.note';
+    var blackboard = global.blackboard,
+        spaceName = 'app.note';
 
-    blackboard.namespace(noteApp).component('test-embed', {
+    blackboard.namespace(spaceName).component('test-embed', {
         template: '<div *b-embed></div>',
         props: {
             name: 'embed'
@@ -13,7 +14,7 @@
         }
     });
 
-    blackboard.namespace(noteApp).service('noteService', {
+    blackboard.namespace(spaceName).service('noteService', {
         props: {
             zIndex: 0,
             notes: []
@@ -74,7 +75,7 @@
         }
     });
 
-    blackboard.namespace(noteApp).directive('note-pan', function(ele, binding) {
+    blackboard.namespace(spaceName).directive('note-pan', function(ele, binding) {
         var scope = binding.scope;
         var hammerTime = new Hammer(ele);
 
@@ -90,7 +91,7 @@
         });
     });
 
-    blackboard.namespace(noteApp).directive('note-resize', function(ele, binding) {
+    blackboard.namespace(spaceName).directive('note-resize', function(ele, binding) {
         var scope = binding.scope;
         var hammerTime = new Hammer(ele);
 
@@ -106,7 +107,7 @@
         });
     });
 
-    blackboard.namespace(noteApp).component('note', {
+    blackboard.namespace(spaceName).component('note', {
         templateUrl: './note.html',
         inject: {
             noteService: 'noteService'
@@ -142,38 +143,39 @@
         }
     });
 
-    global.onload = function() {
-        var scope = {
-            inject: {
-                noteService: 'noteService'
+    blackboard.namespace(spaceName).component('app', {
+        templateUrl: './app.html',
+        inject: {
+            noteService: 'noteService'
+        },
+        props: {
+            notes: []
+        },
+        methods: {
+            createNote: function() {
+                this.noteService.create(this.proxy.notes);
+                this.noteService.save();
             },
-            props: {
-                notes: []
+            saveNote: function() {
+                this.noteService.save();
             },
-            methods: {
-                createNote: function() {
-                    this.noteService.create(this.proxy.notes);
-                    this.noteService.save();
-                },
-                saveNote: function() {
-                    this.noteService.save();
-                },
-                clearNote: function() {
-                    this.noteService.removeAll(this.proxy.notes);
-                    this.noteService.save();
-                },
-                removeNote: function(note) {
-                    this.noteService.remove(this.proxy.notes, note);
-                    this.noteService.save();
-                }
+            clearNote: function() {
+                this.noteService.removeAll(this.proxy.notes);
+                this.noteService.save();
             },
-            onInit: function() {
-                this.noteService.load();
-                this.notes = this.noteService.getList();
+            removeNote: function(note) {
+                this.noteService.remove(this.proxy.notes, note);
+                this.noteService.save();
             }
-        };
+        },
+        onInit: function() {
+            this.noteService.load();
+            this.notes = this.noteService.getList();
+        }
+    });
 
-        blackboard.bootstrap('app', scope);
+    global.onload = function() {
+        blackboard.bootstrap('app', 'app');
     };
 
 })(window);

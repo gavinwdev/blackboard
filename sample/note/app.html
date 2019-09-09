@@ -1,0 +1,9 @@
+<div class="toolbar flex-box">
+    <button class="fa fa-plus-circle btn" @click="createNote()"></button>
+    <button class="fa fa-save btn" @click="saveNote()"></button>
+    <button class="fa fa-remove btn" @click="clearNote()"></button>
+</div>
+
+<div class="flex-element relative-container">
+    <note :model="note" *b-repeat="note in notes" @destroy="removeNote(note)"></note>
+</div>

@@ -41,7 +41,7 @@ namespace(spaceName).directive('b-style', function (ele, binding) {
         utils.forEach(value, function (key, value) {
             ele.style[key] = value;
         });
-        binding.scope.$watchObject(value, function () {
+        binding.scope.$watchProp(value, /\w+/i, function () {
             utils.forEach(value, function (key, value) {
                 ele.style[key] = value;
             });
@@ -322,7 +322,7 @@ namespace(spaceName).directive('b-repeat', {
                 currentItems = [];
             }
 
-            currentScope.$watch(itemsExp + '.length', function () {
+            currentScope.$watchProp(currentItems, 'length', function () {
                 build(currentItems);
             });
         }

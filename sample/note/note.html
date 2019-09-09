@@ -1,7 +1,7 @@
 <div class="note flex-box" :style.left="model.position.x" :style.top="model.position.y" :style.width="model.size.width" :style.height="model.size.height" :style.zIndex="model.zIndex" @mousedown="onMouseDown()">
     <div class="flex-box flex-element flex-column relative-container">
         <div class="note-tlb flex-box" *note-pan>
-            <button class="fa fa-close btn" @click="$destroy()" title="Close"></button>
+            <button class="fa fa-close btn" @click="$destroy()"></button>
         </div>
         <textarea class="note-content flex-element" *b-model="model.content"></textarea>
         <div class="note-resize" *note-resize></div>

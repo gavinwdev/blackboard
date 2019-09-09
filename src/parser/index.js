@@ -1,5 +1,5 @@
 import * as utils from '../utility/utils';
-import { component, injector, isComponent } from '../view';
+import { injector, isComponent } from '../view';
 import { Lexer } from './lexer';
 import { Parser } from './parser';
 import { HtmlLexer } from './html-lexer';
@@ -16,23 +16,15 @@ var parseOptions = {
     }
 };
 
-function bootstrap(idOrElement, def) {
+function bootstrap(component, idOrElement) {
     var element, elementId;
 
-    if (utils.isString(idOrElement)) {
-        elementId = idOrElement;
-        element = document.getElementById(idOrElement);
+    if (injector.containsComponent(component)) {
+        injector.createComponent(component).$mount(idOrElement);
     }
     else {
-        elementId = idOrElement.getAttribute('id');
-        if (elementId == null) {
-            throw new Error('Please id attribute for root component');
-        }
-        element = idOrElement;
+        throw new Error('component' + component + 'is not defined');
     }
-
-    def.template = element.innerHTML;
-    injector.createComponent(component(elementId, def)).$mount(idOrElement);
 }
 
 function parse(html) {

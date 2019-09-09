@@ -1,4 +1,8 @@
 import { isObject, isArray } from './utils';
+import { Messenger } from './message';
+
+var propChangingMsg = new Messenger();
+var propChangedMsg = new Messenger();
 
 function SetPropertyHandler(onchange, parentKey, deepProxy) {
     this.selfKey = '__self__';
@@ -40,14 +44,27 @@ SetPropertyHandler.prototype.set = function (target, key, value) {
             newValue: value
         };
 
-        this.onchange.fireChanging(this.parentKey + key, validation);
+        this.onchange.fireVmChanging(this.parentKey + key, validation);
+        propChangingMsg.fire({
+            target: target,
+            key: key,
+            data: validation
+        });
 
         if (validation.isValid) {
             target[key] = value;
 
-            this.onchange.fireChanged(this.parentKey + key, {
+            this.onchange.fireVmChanged(this.parentKey + key, {
                 oldValue: oldValue,
                 newValue: value
+            });
+            propChangedMsg.fire({
+                target: target,
+                key: key,
+                data: {
+                    oldValue: oldValue,
+                    newValue: value
+                }
             });
         }
     }
@@ -76,4 +93,4 @@ GetPropertyHandler.prototype.get = function (target, key) {
     return value;
 };
 
-export { SetPropertyHandler, GetPropertyHandler }
+export { SetPropertyHandler, GetPropertyHandler, propChangingMsg, propChangedMsg }

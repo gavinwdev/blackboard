@@ -9,6 +9,7 @@ var typeConst = {
 };
 
 var injector = new Injector();
+var namePattern = /^[a-z_\$][\w\$-]*/i;
 
 function Injector() {
     this.container = {};
@@ -166,13 +167,13 @@ Injector.prototype.create = function (contractType, contractName) {
     var constructor = this.get(contractType, contractName), instance;
 
     switch (contractType) {
-        case contractType.component:
+        case typeConst.component:
             instance = this.createComponent(constructor); break;
-        case contractType.directive:
+        case typeConst.directive:
             instance = this.createDirective(constructor); break;
-        case contractType.filter:
+        case typeConst.filter:
             instance = this.createFilter(constructor); break;
-        case contractType.service:
+        case typeConst.service:
             instance = this.createService(constructor); break;
         default:
             instance = new constructor(); break;
@@ -249,14 +250,48 @@ Injector.prototype.setWaitingToExtends = function (contractType, value) {
     this.waitingToExtends[contractType] = value;
 };
 
-Injector.prototype.buildConstructor = function makeConstructor(contractName, def, options) {
-    var self = this, constructor, waitingToExtends = self.getWaitingToExtends(options.contractType);
+Injector.prototype.checkContractName = function (contractName, contractType) {
+    if (namePattern.test(contractName)) {
+        var constructorName = '';
+        var segments = contractName.split('-');
 
-    if (utils.isFunction(options.getConstructor)) {
-        constructor = options.getConstructor();
+        segments.forEach(function (segment) {
+            constructorName += utils.uppercase(segment[0]) + segment.substring(1);
+        });
+
+        switch (contractType) {
+            case typeConst.component:
+                constructorName += 'Component';
+                break;
+            case typeConst.directive:
+                constructorName += 'Directive';
+                break;
+            case typeConst.filter:
+                constructorName += 'Filter';
+                break;
+            case typeConst.service:
+                constructorName += 'Service';
+                break;
+        }
+
+        return constructorName;
     }
     else {
-        constructor = function constructor() {
+        throw new Error(contractName + 'is not a valid name');
+    }
+};
+
+Injector.prototype.buildConstructor = function makeConstructor(contractName, def, options) {
+    var self = this,
+        construct,
+        constructorName = this.checkContractName(contractName, options.contractType),
+        waitingToExtends = self.getWaitingToExtends(options.contractType);
+
+    if (utils.isFunction(options.construct)) {
+        construct = options.construct;
+    }
+    else {
+        construct = function () {
             var self = this;
             if (utils.isFunction(constructor.super)) {
                 constructor.super.call(this);
@@ -271,6 +306,8 @@ Injector.prototype.buildConstructor = function makeConstructor(contractName, def
             }
         };
     }
+
+    var constructor = new Function('construct', '"use strict";return function ' + constructorName + '(){construct.call(this);};')(construct);
 
     if (utils.isFunction(options.superClass)) {
         utils.inherit(constructor, options.superClass);

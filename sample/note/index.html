@@ -8,23 +8,10 @@
 </head>
 
 <body>
-    <div id="app" class="full-size flex-box flex-column">
-        <div class="toolbar flex-box">
-            <span class="title">Note</span>
-            <div class="flex-box flex-element btns">
-                <button class="fa fa-plus-circle btn" @click="createNote()" title="Create"></button>
-                <button class="fa fa-save btn" @click="saveNote()" title="Save"></button>
-                <button class="fa fa-remove btn" @click="clearNote()" title="Clear"></button>
-            </div>
-        </div>
-
-        <div class="flex-element relative-container">
-            <note :model="note" *b-repeat="note in notes" @destroy="removeNote(note)"></note>
-        </div>
-    </div>
+    <div id="app" class="full-size flex-box flex-column"></div>
     <script src="../lib/axios.js"></script>
     <script src="../lib/hammer.js"></script>
-    <script src="../../dist/blackboard.min.js"></script>
+    <script src="../../dist/blackboard.js"></script>
     <script src="./index.js"></script>
 </body>
 
